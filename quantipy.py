@@ -1,34 +1,44 @@
 import math
 class Qubit:
-    def __init__(self, zero,one):
+    def __init__(self, zero=1,one=0):
         self.superposition=[zero,one]
 
-def PaulliX(Qubit):
-    Qubit.superposition=[Qubit.superposition[1],Qubit.superposition[0]]
+class quantumCircuit:
+    def __init__(self,n=1):
+        self.qubits=[Qubit for i in range(n)]
 
-def PaulliY(Qubit):
-    Qubit.superposition=[Qubit.superposition[1]*-1j,Qubit.superposition[0]*1j]
+    def PaulliX(self,i):
+        self.qubits[i].superposition=[self.qubits[i].superposition[1],self.qubits[i].superposition[0]]
 
-def PaulliZ(Qubit):
-    Qubit.superposition=[Qubit.superposition[0],Qubit.superposition[1]*-1]
+    def PaulliY(self,i):
+        self.qubits[i].superposition=[self.qubits[i].superposition[1]*-1j,self.qubits[i].superposition[0]*1j]
 
-def Phase(Qubit, theta):
-    print (theta/math.pi,-1**0.5)
-    Qubit.superposition=[Qubit.superposition[0],Qubit.superposition[1]*(-1**(theta/math.pi))]
+    def PaulliZ(self,i):
+        self.qubits[i].superposition=[self.qubits[i].superposition[0],self.qubits[i].superposition[1]*-1]
 
-def Swap(QubitA,QubitB):
-    temp=QubitA.superposition
-    QubitA.superposition=QubitB.superposition
-    QubitB.superposition=temp
+    def PHASE(self,i, theta):
+        self.qubits[i].superposition=[self.qubits[i].superposition[0],self.qubits[i].superposition[1]*(-1**(theta/math.pi))]
 
-def CNOT(QubitA,QubitB):
-    if QubitA.superposition==[0,1]:
-        PaulliX(QubitB)
+    def SWAP(self,i,j,):
+        temp=self.qubits[i].superposition
+        self.qubits[i].superposition=self.qubits[j].superposition
+        self.qubits[j].superposition=temp
 
-def Hamdard(Qubit):
-    Qubit.superposition=[(1/(2**0.5))*(Qubit.superposition[1]+Qubit.superposition[0]),(1/(2**0.5))*((-1*Qubit.superposition[1])+Qubit.superposition[0])]
+    def CNOT(self,i,j):
+        if self.qubits[i].superposition==[0,1]:
+            self.PaulliX(self.qubits[j])
+
+    def HADAMARD(self,i):
+        self.qubits[i].superposition=[(1/(2**0.5))*(self.qubits[i].superposition[1]+self.qubits[i].superposition[0]),(1/(2**0.5))*((-1*self.qubits[i].superposition[1])+self.qubits[i].superposition[0])]
+
+    def CSWAP(self,i,j,k):
+        if self.qubits[i].superposition==[0,1]:
+            self.SWAP(j,k)
+
+    def CCNOT(self,i,j,k):
+        if self.qubits[i].superposition==[0,1] and self.qubits[j].superposition==[0,1]:
+            self.PaulliX(k)
 
 
-A=Qubit(0,1)
-Phase(A,math.pi*0.5)
-print(A.superposition)
+A=quantumCircuit(3)
+A.PaulliX(0)
