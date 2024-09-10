@@ -40,5 +40,3 @@ class quantumCircuit:
             self.PaulliX(k)
 
 
-A=quantumCircuit(3)
-A.PaulliX(0)
