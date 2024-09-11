@@ -54,3 +54,4 @@ class quantumCircuit:
             ret = 1
             self.qubits[i]= [0, 1]
         return ret
+    
