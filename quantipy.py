@@ -14,15 +14,49 @@ class QuantumCircuit:
             str_qubits += f"Quibit {i}: [{qubit[0]}, {qubit[1]}]\n"
         return str_qubits
 
+#PaulliGates
     def PaulliX(self,i):
+        """
+         [[0,1]
+        [1,0]]       
+        """
         self.qubits[i]=[self.qubits[i][1],self.qubits[i][0]]
 
     def PaulliY(self,i):
+        """
+         [[0,-i]
+        [i,0]]       
+        """
         self.qubits[i]=[self.qubits[i][1]*-1j,self.qubits[i][0]*1j]
 
     def PaulliZ(self,i):
+        """
+         [[1,0]
+        [0,-1]]       
+        """
         self.qubits[i]=[self.qubits[i][0],self.qubits[i][1]*-1]
 
+#Rotation Gates
+    def Rx(self,i,theta):
+        """
+        [[cos(theta/2),-i*sin(theta/2)]
+        [-i*sin(theta/2),cos(theta/2)]]
+        """
+        self.qubits[i] =[self.qubits[i][0]*cmath.cos(theta/2)+self.qubits[i][1]*cmath.sin(theta/2)*-1j,self.qubits[i][1]*cmath.cos(theta/2)+self.qubits[i][0]*cmath.sin(theta/2)*-1j]
+    
+    def Ry(self,i,theta):
+        """
+        [[cos(theta/2),-sin(theta/2)]
+        [sin(theta/2),cos(theta/2)]]
+        """
+        self.qubits[i] =[self.qubits[i][0]*cmath.cos(theta/2)+self.qubits[i][1]*cmath.sin(theta/2)*-1,self.qubits[i][1]*cmath.cos(theta/2)+self.qubits[i][0]*cmath.sin(theta/2)]
+
+    def Rz(self,i,theta):
+        """
+        [[exp(-i*theta/2),0]
+        [0,[exp(i*theta/2)]]
+        """
+        self.qubits[i] =[self.qubits[i][0]*cmath.exp(-1j*(theta/2)),self.qubits[i][0]*cmath.exp(1j*(theta/2))]
 
     def PHASE(self,i, theta):
         self.qubits[i].superposition=[
@@ -108,3 +142,11 @@ def random_plot():
     variance = sum((x - mean) ** 2 for x in samples) / num_samples
     print(f"Mean: {mean:.2f}")
     print(f"Variance: {variance:.2f}")
+
+A=QuantumCircuit(3)
+A.Rx(0,cmath.pi/2)
+print(A)
+A.Ry(1,cmath.pi/2)
+print(A)
+A.Rz(2,cmath.pi/2)
+print(A)
