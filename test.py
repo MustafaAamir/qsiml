@@ -75,11 +75,6 @@ class TestQuantipy(unittest.TestCase):
             qc.PHASE(i, pi_values[i])
             self.assertAlmostEqual(qc.qubits[i][1].real, euler_values[i].real)
 
-<<<<<<< HEAD
-
-Testing=TestQuantipy()
-Testing.test_paulliX()
-=======
         qc = QuantumCircuit(360)
         for i in range(360, 0, -1):
             qc.PaulliX(i - 1)
@@ -97,6 +92,5 @@ Testing.test_paulliX()
             qc.PaulliX(i)
             self.assertEqual(qc.measure(i), 1)
 
->>>>>>> 56dcac90d33657c0bea87d34ae5ad149617c288f
 
 
