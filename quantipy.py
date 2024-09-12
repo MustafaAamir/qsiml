@@ -73,12 +73,14 @@ class QuantumCircuit:
         ]
 
     def PHASE(self, i, theta):
-        self.qubits[i].superposition = [
+        self.qubits[i] = [
             self.qubits[i][0],
             complex(self.qubits[i][1] * (cmath.exp(1j * theta))),
         ]
         if theta % cmath.pi == 0:
             self.qubits[i][1] = self.qubits[i][1].real
+        elif (theta % (cmath.pi / 2)) == 0:
+            self.qubits[i][1] = (self.qubits[i][1].imag) * 1j
 
     def SWAP(self, i, j):
         temp = self.qubits[i]
@@ -157,11 +159,3 @@ def random_plot():
     print(f"Mean: {mean:.2f}")
     print(f"Variance: {variance:.2f}")
 
-
-A = QuantumCircuit(3)
-A.Rx(0, cmath.pi / 2)
-print(A)
-A.Ry(1, cmath.pi / 2)
-print(A)
-A.Rz(2, cmath.pi / 2)
-print(A)
