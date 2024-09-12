@@ -116,3 +116,38 @@ class TestQuantipy(unittest.TestCase):
         qc.CNOT(1, 0)
         self.assertEqual(qc.qubits[0], ZERO_STATE)
 
+    def test_CCNOT(self):
+        """if both control bits are one, flips target"""
+        qc = QuantumCircuit(3)
+        qc.CCNOT(0, 1, 2)
+        self.assertEqual(qc.qubits[2], INITIAL_STATE)
+
+        qc.PaulliX(0)
+        qc.CCNOT(0, 1, 2)
+        self.assertEqual(qc.qubits[2], INITIAL_STATE)
+
+        qc.PaulliX(1)
+        qc.CCNOT(0, 1, 2)
+        self.assertEqual(qc.qubits[2], ONE_STATE)
+        """finally changes when both control bits are one"""
+
+        qc.CCNOT(1, 2, 0)
+        self.assertEqual(qc.qubits[0], INITIAL_STATE)
+
+    def test_CSWAP(self):
+        """if control bit is one, swaps two target bits"""
+        qc = QuantumCircuit(3)
+        qc.PaulliX(2)
+        qc.CSWAP(0, 1, 2)
+        self.assertEqual(qc.qubits[1], INITIAL_STATE)
+        self.assertEqual(qc.qubits[2], ONE_STATE)
+
+        qc.PaulliX(0)
+        qc.CSWAP(0, 1, 2)
+        self.assertEqual(qc.qubits[1], ONE_STATE)
+        self.assertEqual(qc.qubits[2], ZERO_STATE)
+
+
+
+
+
