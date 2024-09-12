@@ -89,7 +89,7 @@ class QuantumCircuit:
 
     def CNOT(self, i, j):
         if self.qubits[i] == [0, 1]:
-            self.PaulliX(self.qubits[j])
+            self.PaulliX(j)
 
     def HADAMARD(self, i):
         self.qubits[i] = [
