@@ -6,7 +6,19 @@ from typing import List
 
 
 class QuantumCircuit:
+    """
+    A class containing qubits and gate operations that may be performed on qubits
+
+    Attributes:
+        qubits (List[List[complex]]): A list of qubits, which are 2x1 column vectors
+    """
+
     def __init__(self, n=1):
+        """
+        Initializes qubits with n qubits with a zero state [1, 0]
+        Parameters:
+            n (int): The number of qubits to initialize (1 by default)
+        """
         self.qubits: List[List[complex]] = [[complex(1), complex(0)] for _ in range(n)]
 
     def __repr__(self):
@@ -40,8 +52,8 @@ class QuantumCircuit:
     # Rotation Gates
     def Rx(self, i, theta):
         """
-        [[cos(theta/2),-i*sin(theta/2)]
-        [-i*sin(theta/2),cos(theta/2)]]
+        [[cos(theta/2),   -i*sin(theta/2)],
+        [-i*sin(theta/2),  cos(theta/2)]]
         """
         self.qubits[i] = [
             self.qubits[i][0] * cmath.cos(theta / 2)
@@ -66,10 +78,12 @@ class QuantumCircuit:
         """
         [[exp(-i*theta/2),0]
         [0,[exp(i*theta/2)]]
+
+        |0⟩ cool arrow
         """
         self.qubits[i] = [
             self.qubits[i][0] * cmath.exp(-1j * (theta / 2)),
-            self.qubits[i][0] * cmath.exp(1j * (theta / 2)),
+            self.qubits[i][1] * cmath.exp(1j * (theta / 2)),
         ]
 
     def PHASE(self, i, theta):
@@ -98,10 +112,18 @@ class QuantumCircuit:
         ]
 
     def CSWAP(self, i, j, k):
+        """
+        Swaps target qubits j and k, given that qubit i has a one state
+        Arguments:
+            i (int) : index of the control bit
+            j, k (int) : indexes of the target bits
+        """
         if self.qubits[i] == [0, 1]:
             self.SWAP(j, k)
 
     def CCNOT(self, i, j, k):
+        """
+        """
         if self.qubits[i] == [0, 1] and self.qubits[j] == [0, 1]:
             self.PaulliX(k)
 
@@ -159,3 +181,8 @@ def random_plot():
     print(f"Mean: {mean:.2f}")
     print(f"Variance: {variance:.2f}")
 
+qc = QuantumCircuit(2)
+qc.HADAMARD(0)
+ret = qc.measure(0)
+qc.CNOT(0, 1)
+print(qc)

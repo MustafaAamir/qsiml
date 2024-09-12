@@ -17,7 +17,6 @@ class TestQuantipy(unittest.TestCase):
     applying it once results quibits being HALF_SQRT
     aPplying it twice results in quibits reverting to their original state
     """
-
     def test_hadamard(self):
         qc = QuantumCircuit(1)
         # storing states for later comparison
@@ -146,6 +145,49 @@ class TestQuantipy(unittest.TestCase):
         qc.CSWAP(0, 1, 2)
         self.assertEqual(qc.qubits[1], ONE_STATE)
         self.assertEqual(qc.qubits[2], ZERO_STATE)
+
+    def test_rx(self):
+        qc = QuantumCircuit(1)
+        for i in range(360, 0, -1):
+            theta = 2 * (cmath.pi / i)
+            qc.qubits[0] = INITIAL_STATE
+            qc.Rx(0, theta)
+            self.assertAlmostEqual(qc.qubits[0][0], cmath.cos(theta/2))
+            self.assertAlmostEqual(qc.qubits[0][1], -1j * cmath.sin(theta/2))
+            qc.qubits[0] = ONE_STATE
+            qc.Rx(0, theta)
+            self.assertAlmostEqual(qc.qubits[0][0], -1j * cmath.sin(theta/2))
+            self.assertAlmostEqual(qc.qubits[0][1], cmath.cos(theta/2))
+
+    def test_ry(self):
+        qc = QuantumCircuit(1)
+        for i in range(360, 0, -1):
+            theta = 2 * (cmath.pi / i)
+            qc.qubits[0] = INITIAL_STATE
+            qc.Ry(0, theta)
+            self.assertAlmostEqual(qc.qubits[0][0], cmath.cos(theta/2))
+            self.assertAlmostEqual(qc.qubits[0][1], cmath.sin(theta/2))
+            qc.qubits[0] = ONE_STATE
+            qc.Ry(0, theta)
+            self.assertAlmostEqual(qc.qubits[0][0], -cmath.sin(theta/2))
+            self.assertAlmostEqual(qc.qubits[0][1], cmath.cos(theta/2))
+
+    def test_rz(self):
+        qc = QuantumCircuit(1)
+        for i in range(360, 0, -1):
+            theta = 2 * (cmath.pi / i)
+            qc.qubits[0] = INITIAL_STATE
+            qc.Rz(0, theta)
+            self.assertAlmostEqual(qc.qubits[0][0], cmath.cos(theta/2) + cmath.sin(theta/2) * -1j)
+            self.assertAlmostEqual(qc.qubits[0][1], 0)
+            qc.qubits[0] = ONE_STATE
+            qc.Rz(0, theta)
+            self.assertAlmostEqual(qc.qubits[0][0], 0)
+            self.assertAlmostEqual(qc.qubits[0][1], cmath.cos(theta/2) + cmath.sin(theta/2) * 1j)
+
+
+
+
 
 
 
