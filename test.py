@@ -66,6 +66,7 @@ class TestQuantipy(unittest.TestCase):
         for i in range(5):
             qc.phase(i, pi_values[i])
             self.assertAlmostEqual(qc.qubits[i][1], COMPLEX_ZERO)
+            print(qc.qubits[i][0])
 
     def test_PHASE_PauliX(self):
         qc = QuantumCircuit(5)

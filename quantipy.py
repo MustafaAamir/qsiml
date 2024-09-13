@@ -2,6 +2,14 @@ import random
 import cmath
 from typing import List
 
+HALF_SQRT = complex((1 / 2) ** 0.5)
+COMPLEX_ZERO = complex(0)
+COMPLEX_ONE = complex(1)
+INITIAL_STATE = [COMPLEX_ONE, COMPLEX_ZERO]
+ZERO_STATE = INITIAL_STATE
+ONE_STATE = [COMPLEX_ZERO, COMPLEX_ONE]
+ONE_SQRT2 = [complex(1 / cmath.sqrt(2)), complex(1 / cmath.sqrt(2))]
+
 
 class QuantumCircuit:
     """
@@ -123,13 +131,16 @@ class QuantumCircuit:
         """ """
         if self.qubits[i] == [0, 1] and self.qubits[j] == [0, 1]:
             self.px(k)
-
-    def measure(self, i):
+    def probability(self, i):
         pzero = self.qubits[i][0].real ** 2
         pone = self.qubits[i][1].real ** 2
         tp = pzero + pone
         pzero = pzero / tp
         pone = pone / tp
+        return pzero, pone
+
+    def measure(self, i):
+        pzero, pone = self.probability(i)
         random_float = random.random()
         if random_float < pzero:
             ret = 0
@@ -138,3 +149,40 @@ class QuantumCircuit:
             ret = 1
             self.qubits[i] = [complex(0), complex(1)]
         return ret
+
+    def measure_all(self):
+        for i in range(len(self.qubits)):
+            self.measure(i)
+
+    def dump(self, i, msg: str = ""):
+        """dumps info about the ith qubit without measuring its state"""
+        print(msg)
+        if (self.qubits[i] == INITIAL_STATE):
+            basis_state = "|0⟩"
+            print(f"""basis state: {basis_state}
+Amplitude: {self.qubits[i][0]}
+Probability: 100.00%
+Phase: 0.00""")
+        elif (self.qubits[i] == ONE_STATE):
+            basis_state = "|1⟩"
+            print(f"""basis state: {basis_state}
+Amplitude: {self.qubits[i][1]}
+Probability: 100.00%
+Phase: 1.00""")
+        else:
+            pzero, pone = self.probability(i)
+            print(f"""basis state: |0⟩
+Amplitude: {self.qubits[i][0]}
+Probability: {pzero * 100}%
+Phase: {cmath.phase(self.qubits[i][0])}
+-----------------------""")
+            print(f"""basis state: |1⟩
+Amplitude: {self.qubits[i][1]}
+Probability: {pone * 100}%
+Phase: {cmath.phase(self.qubits[i][1])}
+""")
+
+    def reset(self, i):
+        """Qubit must be reset"""
+        self.qubits[i] = INITIAL_STATE
+
