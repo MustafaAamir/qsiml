@@ -13,57 +13,83 @@ ONE_SQRT2 = [complex(1 / cmath.sqrt(2)), complex(1 / cmath.sqrt(2))]
 
 class QuantumCircuit:
     """
-    A class containing qubits and gate operations that may be performed on qubits
+    A class representing a quantum circuit with qubits and gate operations.
+
+    This class allows for the creation and manipulation of quantum circuits,
+    including various quantum gates and measurement operations.
 
     Attributes:
-        qubits (List[List[complex]]): A list of qubits, which are 2x1 column vectors
+        qubits (List[List[complex]]): A list of qubits, where each qubit is represented
+                                      as a 2x1 column vector of complex numbers.
+        circuit (List[Tuple[str, List[int]]]): A list of operations performed
+                                                          on the circuit, where each operation
+                                                          is a tuple of the gate name and the
+                                                          qubit indices it acts upon.
     """
 
-    def __init__(self, n=1):
+    def __init__(self, n: int = 1):
         """
         Initializes qubits with n qubits with a zero state [1, 0]
         Parameters:
             n (int): The number of qubits to initialize (1 by default)
         """
-        self.qubits: List[List[complex]] = [[complex(1), complex(0)] for _ in range(n)]
+        self.qubits: List[List[complex]] = [INITIAL_STATE for _ in range(n)]
         self.circuit: List[Tuple[str, List[int]]] = []
 
     def __repr__(self):
+        """
+        Return a string representation of every qubit's amplitude in the following format:
+            Qubit {i}: [alpha, beta]
+        where alpha and beta are the individual probability amplitudes for each state.
+        """
         str_qubits = ""
         for i, qubit in enumerate(self.qubits):
             str_qubits += f"Quibit {i}: [{qubit[0]}, {qubit[1]}]\n"
         return str_qubits
 
     # PaulliGates
-    def px(self, i):
+    def px(self, i: int):
         """
-         [[0,1]
-        [1,0]]
+        Apply the Pauli-X gate (NOT gate) to the i-th qubit.
+        The Pauli-X gate flips the state of the qubit, transforming |0⟩ to |1⟩ and vice versa.
+        Args:
+            i (int): The index of the qubit to apply the gate to.
         """
         self.qubits[i] = [self.qubits[i][1], self.qubits[i][0]]
         self.circuit.append(("X", [i]))
 
-    def py(self, i):
+    def py(self, i: int):
         """
-         [[0,-i]
-        [i,0]]
+        Apply the Pauli-Y gate to the i-th qubit.
+        The Pauli-Y gate rotates the qubit state around the Y-axis of the Bloch sphere by π radians.
+
+        Args:
+            i (int): The index of the qubit to apply the gate to.
         """
         self.qubits[i] = [self.qubits[i][1] * -1j, self.qubits[i][0] * 1j]
         self.circuit.append(("Y", [i]))
 
-    def pz(self, i):
+    def pz(self, i: int):
         """
-         [[1,0]
-        [0,-1]]
+        Apply the Pauli-Z gate to the i-th qubit.
+        The Pauli-Z gate rotates the qubit state around the Z-axis of the Bloch sphere by π radians.
+
+        Args:
+            i (int): The index of the qubit to apply the gate to.
         """
+
         self.qubits[i] = [self.qubits[i][0], self.qubits[i][1] * -1]
         self.circuit.append(("Z", [i]))
 
     # Rotation Gates
-    def rx(self, i, theta):
+    def rx(self, i: int, theta: float):
         """
-        [[cos(theta/2),   -i*sin(theta/2)],
-        [-i*sin(theta/2),  cos(theta/2)]]
+        Apply the rx(θ) to the i-th qubit.
+        The rx gate rotates the qubit state around the X-axis of the Bloch sphere by theta radians.
+
+        Args:
+            i (int): The index of the qubit to apply the gate to.
+            theta (float): The angle of rotation in radians.
         """
         self.qubits[i] = [
             self.qubits[i][0] * cmath.cos(theta / 2)
@@ -73,11 +99,15 @@ class QuantumCircuit:
         ]
         self.circuit.append(("Rx", [i]))
 
-    def ry(self, i, theta):
+    def ry(self, i: int, theta: float):
         """
-        [[cos(theta/2),-sin(theta/2)]
-        [sin(theta/2),cos(theta/2)]]
+        Apply the rx(θ) to the i-th qubit.
+        The ry gate rotates the qubit state around the Y-axis of the Bloch sphere by theta radians.
+        Args:
+            i (int): The index of the qubit to apply the gate to.
+            theta (float): The angle of rotation in radians.
         """
+
         self.qubits[i] = [
             self.qubits[i][0] * cmath.cos(theta / 2)
             + self.qubits[i][1] * cmath.sin(theta / 2) * -1,
@@ -86,12 +116,13 @@ class QuantumCircuit:
         ]
         self.circuit.append(("Ry", [i]))
 
-    def rz(self, i, theta):
+    def rz(self, i: int, theta: float):
         """
-        [[exp(-i*theta/2),0]
-        [0,[exp(i*theta/2)]]
-
-        |0⟩ cool arrow
+        Apply the rz(θ) to the i-th qubit.
+        The rz gate rotates the qubit state around the Z-axis of the Bloch sphere by theta radians.
+        Args:
+            i (int): The index of the qubit to apply the gate to.
+            theta (float): The angle of rotation in radians.
         """
         self.qubits[i] = [
             self.qubits[i][0] * cmath.exp(-1j * (theta / 2)),
@@ -99,7 +130,15 @@ class QuantumCircuit:
         ]
         self.circuit.append(("Rz", [i]))
 
-    def phase(self, i, theta):
+    def phase(self, i: int, theta: float):
+        """
+        Apply a phase shift to the i-th qubit.
+        phase(θ) adds a phase e^(i*θ) to the |1⟩, leaving |0⟩ unchanged.
+
+        Args:
+            i (int): The index of the qubit to apply the gate to.
+            theta (float): The phase angle in radians.
+        """
         self.qubits[i] = [
             self.qubits[i][0],
             complex(self.qubits[i][1] * (cmath.exp(1j * theta))),
@@ -110,45 +149,86 @@ class QuantumCircuit:
             self.qubits[i][1] = (self.qubits[i][1].imag) * 1j
         self.circuit.append(("P", [i]))
 
-    def swap(self, i, j):
+    def swap(self, i: int, j: int):
+        """
+        Swap the states of two qubits.
+
+        Args:
+            i (int): The index of the first qubit.
+            j (int): The index of the second qubit.
+        """
         temp = self.qubits[i]
         self.qubits[i] = self.qubits[j]
         self.qubits[j] = temp
         self.circuit.append(("SWAP", [i, j]))
 
-    def cnot(self, i, j):
-        if self.qubits[i] == [0, 1]:
+    def cnot(self, i: int, j: int):
+        """
+        Apply the CNOT gate with qubit i as control and qubit j as target.
+        If the control qubit is |1⟩, the amplitudes of the target qubit are flipped.
+
+        Args:
+            i (int): The index of the control qubit.
+            j (int): The index of the target qubit.
+        """
+        if self.qubits[i] == ONE_STATE:
             self.qubits[j] = [self.qubits[j][1], self.qubits[j][0]]
         self.circuit.append(("CNOT", [i, j]))
 
-    def h(self, i):
+    def h(self, i: int):
+        """
+        Apply the Hadamard (H) gate to the i-th qubit.
+        The H gate creates an equal superposition of |0⟩ and |1⟩ states.
+        Args:
+            i (int): The index of the qubit to apply the gate to.
+        """
         self.qubits[i] = [
             (1 / (2**0.5)) * (self.qubits[i][1] + self.qubits[i][0]),
             (1 / (2**0.5)) * ((-1 * self.qubits[i][1]) + self.qubits[i][0]),
         ]
         self.circuit.append(("H", [i]))
 
-    def cswap(self, i, j, k):
+    def cswap(self, i: int, j: int, k: int):
         """
-        Swaps target qubits j and k, given that qubit i has a one state
-        Arguments:
-            i (int) : index of the control bit
-            j, k (int) : indexes of the target bits
+        Apply a CSWAP (Fredkin) gate.
+        Swaps the amplitudes of qubits j and k if qubit i is in the |1⟩ state.
+
+        Args:
+            i (int): The index of the control qubit.
+            j (int): The index of the first target qubit.
+            k (int): The index of the second target qubit.
         """
-        if self.qubits[i] == [0, 1]:
+        if self.qubits[i] == ONE_STATE:
             temp = self.qubits[j]
             self.qubits[j] = self.qubits[k]
             self.qubits[k] = temp
 
         self.circuit.append(("CSWAP", [i, j, k]))
 
-    def ccnot(self, i, j, k):
-        """ """
-        if self.qubits[i] == [0, 1] and self.qubits[j] == [0, 1]:
+    def ccnot(self, i: int, j: int, k: int):
+        """
+        Apply a CCNOT (Toffoli) gate.
+        Swaps the amplitudes of qubit k if both qubits i and j are in the |1⟩ state.
+
+        Args:
+            i (int): The index of the first control qubit.
+            j (int): The index of the second control qubit.
+            k (int): The index of the target qubit.
+        """
+        if self.qubits[i] == ONE_STATE and self.qubits[j] == ONE_STATE:
             self.qubits[k] = [self.qubits[k][1], self.qubits[k][0]]
         self.circuit.append(("CCNOT", [i, j, k]))
 
-    def probability(self, i):
+    def probability(self, i: int) -> Tuple[float, float]:
+        """
+        Calculate the probability of measuring the i-th qubit in the |0⟩ and |1⟩ states.
+
+        Args:
+            i (int): The index of the qubit.
+
+        Returns:
+            Tuple[float, float]: A tuple containing the probabilities (p_zero, p_one).
+        """
         pzero = self.qubits[i][0].real ** 2
         pone = self.qubits[i][1].real ** 2
         tp = pzero + pone
@@ -156,26 +236,49 @@ class QuantumCircuit:
         pone = pone / tp
         return pzero, pone
 
-    def measure(self, i):
-        pzero, pone = self.probability(i)
+    def measure(self, i: int) -> int:
+        """
+        Performs a measurement on the i-th qubit.
+        This collapses the qubit's state to either |0⟩ or |1⟩ based on its current probabilities.
+
+        Args:
+            i (int): The index of the qubit to measure.
+
+        Returns:
+            int: The result of the measurement (0 or 1).
+        """
+        pzero, _ = self.probability(i)
         random_float = random.random()
         if random_float < pzero:
             ret = 0
-            self.qubits[i] = [complex(1), complex(0)]
+            self.qubits[i] = ZERO_STATE
         else:
             ret = 1
-            self.qubits[i] = [complex(0), complex(1)]
+            self.qubits[i] = ONE_STATE
         self.circuit.append(("M", [i]))
         return ret
 
-    def measure_all(self):
-        for i in range(len(self.qubits)):
-            self.measure(i)
+    def measure_all(self) -> List[int]:
+        """
+        Performs a measurement on every qubit in the circuit.
+        This collapses the state of all qubit to either |0⟩ or |1⟩ based on their current probabilities.
+
+        Returns:
+            List[int]: The results of the measurement (0 or 1) of all qubits in the circuit.
+        """
+
+        measured_values = []
+        measured_values.append(self.measure(i) for i in range(len(self.qubits)))
+        return measured_values
 
     def dump(self, msg: str = ""):
-        """dumps info about the ith qubit without measuring its state"""
-        """NEEDS REFACTORING"""
-        """I'm banking on a numpy rewrite tho, so all good at the moment"""
+        """
+        Print the current state of the quantum circuit without affecting it.
+        Displays the probability amplitudes for each basis state along with their probabilities and phases.
+
+        Args:
+            msg (str, optional): An optional message to print before the state dump. Defaults to "".
+        """
         print(msg)
         state_vector = [1]
         for qubit in self.qubits:
@@ -195,7 +298,7 @@ class QuantumCircuit:
 
         for i, amp in enumerate(normalized_state_vector):
             prob = amp.real**2
-            if prob < 1e-7:
+            if prob < 1e-8:
                 continue
             basis_state = bin(i)[2:]
             phase = cmath.phase(amp)
@@ -204,13 +307,21 @@ class QuantumCircuit:
             )
 
     def reset(self, i):
-        """Qubit must be reset"""
+        """
+        Reset the i-th qubit to the |0⟩ state.
+
+        Args:
+            i (int): The index of the qubit to reset.
+        """
         self.qubits[i] = INITIAL_STATE
 
     def draw(self, header: str = ""):
-        """Print an ASCII representation of the quantum circuit.
-        circuit=[('Gate',[target]),('Gate',[target]),('Gate',[target])]"""
+        """
+        Print an ASCII representation of the quantum circuit.
 
+        Args:
+            header (str, optional): An optional header to print above the circuit representation. Defaults to "".
+        """
         circuit = self.circuit
         gate_symbols = {
             "H": "H",
@@ -232,10 +343,6 @@ class QuantumCircuit:
         num_gates = len(circuit)
         if header != "":
             print(header)
-        # Print the header
-        # —
-        # Print the gates and qubits
-
         for qubit in range(num_qubits):
             print(f"|q{qubit}⟩", end="")
             for gate_index in range(num_gates):
@@ -260,8 +367,14 @@ class QuantumCircuit:
                     print("———", end="")
             print()
 
-    def operations(self, msg: str = ""):
-        print(msg)
+    def operations(self, header: str = ""):
+        """
+        Prints the gates applied to each qubit(s) in order.
+
+        Args:
+            msg (str, optional): An optional header to print above the description. Defaults to "".
+        """
+        print(header)
         for i, (gate, targets) in enumerate(self.circuit):
             qubit_plural = "qubit"
             if len(targets) > 1:
