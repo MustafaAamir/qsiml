@@ -250,10 +250,7 @@ class QuantumCircuit:
                             else:
                                 print(f"—{gate_symbols[gate]}—", end="")
                         else:
-                            if gate == "CCNOT":
-                                print("—╂—", end="")
-                            else:
-                                print("—│—", end="")
+                            print("—│—", end="")
                     else:
                         if gate in ("Rx", "Ry", "Rz"):
                             print(f"—{gate_symbols[gate]}", end="")
