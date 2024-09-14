@@ -30,7 +30,7 @@ class TestGates(unittest.TestCase):
         self.assertAlmostEqual(zeroeth, qc.qubits[0][0])
         self.assertAlmostEqual(oneth, qc.qubits[0][1])
 
-    def test_paulliX(self):
+    def test_px(self):
         qc = QuantumCircuit(1)
 
         qc.px(0)
@@ -40,7 +40,7 @@ class TestGates(unittest.TestCase):
         self.assertAlmostEqual(1, qc.qubits[0][0])
         self.assertAlmostEqual(0, qc.qubits[0][1])
 
-    def test_paulliY(self):
+    def test_py(self):
         qc = QuantumCircuit(2)
         qc.px(1)
         qc.py(0)
@@ -50,7 +50,7 @@ class TestGates(unittest.TestCase):
         self.assertAlmostEqual(-1j, qc.qubits[1][0])
         self.assertAlmostEqual(0, qc.qubits[1][1])
 
-    def test_paulliZ(self):
+    def test_pz(self):
         qc = QuantumCircuit(2)
         qc.px(1)
         qc.pz(0)
@@ -60,14 +60,14 @@ class TestGates(unittest.TestCase):
         self.assertAlmostEqual(0, qc.qubits[1][0])
         self.assertAlmostEqual(-1, qc.qubits[1][1])
 
-    def test_PHASE_noPauliX(self):
+    def test_phase_no_px(self):
         qc = QuantumCircuit(5)
         pi_values = [0.0, cmath.pi / 2, cmath.pi, (1.5) * cmath.pi, 2 * cmath.pi]
         for i in range(5):
             qc.phase(i, pi_values[i])
             self.assertAlmostEqual(qc.qubits[i][1], COMPLEX_ZERO)
 
-    def test_PHASE_PauliX(self):
+    def test_phase_px(self):
         qc = QuantumCircuit(5)
         pi_values = [0.0, cmath.pi / 2, cmath.pi, (1.5) * cmath.pi, 2 * cmath.pi]
         # i added some changes to phase
@@ -104,7 +104,7 @@ class TestGates(unittest.TestCase):
             qc.px(i)
             self.assertEqual(qc.measure(i), 1)
 
-    def test_CNOT(self):
+    def test_cnot(self):
         """flips target qubit only if control qubitis one"""
         qc = QuantumCircuit(2)
         qc.cnot(0, 1)
@@ -115,7 +115,7 @@ class TestGates(unittest.TestCase):
         qc.cnot(1, 0)
         self.assertEqual(qc.qubits[0], ZERO_STATE)
 
-    def test_CCNOT(self):
+    def test_ccnot(self):
         """if both control bits are one, flips target"""
         qc = QuantumCircuit(3)
         qc.ccnot(0, 1, 2)
@@ -133,7 +133,7 @@ class TestGates(unittest.TestCase):
         qc.ccnot(1, 2, 0)
         self.assertEqual(qc.qubits[0], INITIAL_STATE)
 
-    def test_CSWAP(self):
+    def test_cswap(self):
         """if control bit is one, swaps two target bits"""
         qc = QuantumCircuit(3)
         qc.px(2)
@@ -231,6 +231,11 @@ class TestGates(unittest.TestCase):
     Testing other identities mentioned in:
     https://en.wikipedia.org/wiki/List_of_quantum_logic_gates
     """
+    def test_dump(self):
+        '''
+        compare to Q# DrawMachine function
+        '''
+        pass
 
 
 class TestDraw(unittest.TestCase):
