@@ -1,6 +1,6 @@
 import random
 import cmath
-from typing import List
+from typing import List,Tuple
 
 HALF_SQRT = complex((1 / 2) ** 0.5)
 COMPLEX_ZERO = complex(0)
@@ -26,6 +26,7 @@ class QuantumCircuit:
             n (int): The number of qubits to initialize (1 by default)
         """
         self.qubits: List[List[complex]] = [[complex(1), complex(0)] for _ in range(n)]
+        self.circuit_operations: List[Tuple[str, List[int]]] = []
 
     def __repr__(self):
         str_qubits = ""
@@ -40,6 +41,7 @@ class QuantumCircuit:
         [1,0]]
         """
         self.qubits[i] = [self.qubits[i][1], self.qubits[i][0]]
+        self.circuit_operations.append(('X', [i]))
 
     def py(self, i):
         """
@@ -47,6 +49,7 @@ class QuantumCircuit:
         [i,0]]
         """
         self.qubits[i] = [self.qubits[i][1] * -1j, self.qubits[i][0] * 1j]
+        self.circuit_operations.append(('Y', [i]))
 
     def pz(self, i):
         """
@@ -54,6 +57,7 @@ class QuantumCircuit:
         [0,-1]]
         """
         self.qubits[i] = [self.qubits[i][0], self.qubits[i][1] * -1]
+        self.circuit_operations.append(('Z', [i]))
 
     # Rotation Gates
     def rx(self, i, theta):
@@ -67,6 +71,7 @@ class QuantumCircuit:
             self.qubits[i][1] * cmath.cos(theta / 2)
             + self.qubits[i][0] * cmath.sin(theta / 2) * -1j,
         ]
+        self.circuit_operations.append(('Rx', [i]))
 
     def ry(self, i, theta):
         """
@@ -79,6 +84,7 @@ class QuantumCircuit:
             self.qubits[i][1] * cmath.cos(theta / 2)
             + self.qubits[i][0] * cmath.sin(theta / 2),
         ]
+        self.circuit_operations.append(('Ry', [i]))
 
     def rz(self, i, theta):
         """
@@ -91,6 +97,7 @@ class QuantumCircuit:
             self.qubits[i][0] * cmath.exp(-1j * (theta / 2)),
             self.qubits[i][1] * cmath.exp(1j * (theta / 2)),
         ]
+        self.circuit_operations.append(('Rz', [i]))
 
     def phase(self, i, theta):
         self.qubits[i] = [
@@ -101,21 +108,25 @@ class QuantumCircuit:
             self.qubits[i][1] = self.qubits[i][1].real
         elif (theta % (cmath.pi / 2)) == 0:
             self.qubits[i][1] = (self.qubits[i][1].imag) * 1j
+        self.circuit_operations.append(('P', [i]))
 
     def swap(self, i, j):
         temp = self.qubits[i]
         self.qubits[i] = self.qubits[j]
         self.qubits[j] = temp
+        self.circuit_operations.append(('SWAP', [i]))
 
     def cnot(self, i, j):
         if self.qubits[i] == [0, 1]:
             self.px(j)
+        self.circuit_operations.append(('CNOT', [i]))
 
     def h(self, i):
         self.qubits[i] = [
             (1 / (2**0.5)) * (self.qubits[i][1] + self.qubits[i][0]),
             (1 / (2**0.5)) * ((-1 * self.qubits[i][1]) + self.qubits[i][0]),
         ]
+        self.circuit_operations.append(('H', [i]))
 
     def cswap(self, i, j, k):
         """
@@ -126,11 +137,14 @@ class QuantumCircuit:
         """
         if self.qubits[i] == [0, 1]:
             self.swap(j, k)
+        self.circuit_operations.append(('CSWAP', [i]))
 
     def ccnot(self, i, j, k):
         """ """
         if self.qubits[i] == [0, 1] and self.qubits[j] == [0, 1]:
             self.px(k)
+        self.circuit_operations.append(('CCNOT', [i]))
+
     def probability(self, i):
         pzero = self.qubits[i][0].real ** 2
         pone = self.qubits[i][1].real ** 2
@@ -148,6 +162,7 @@ class QuantumCircuit:
         else:
             ret = 1
             self.qubits[i] = [complex(0), complex(1)]
+        self.circuit_operations.append(('M', [i]))
         return ret
 
     def measure_all(self):
