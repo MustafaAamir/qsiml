@@ -154,35 +154,44 @@ class QuantumCircuit:
         for i in range(len(self.qubits)):
             self.measure(i)
 
-    def dump(self, i, msg: str = ""):
+    def dump(self, msg: str = ""):
         """dumps info about the ith qubit without measuring its state"""
+        """NEEDS REFACTORING"""
+        """I'm banking on a numpy rewrite tho, so all good at the moment"""
         print(msg)
-        if (self.qubits[i] == INITIAL_STATE):
-            basis_state = "|0⟩"
-            print(f"""basis state: {basis_state}
-Amplitude: {self.qubits[i][0]}
-Probability: 100.00%
-Phase: 0.00""")
-        elif (self.qubits[i] == ONE_STATE):
-            basis_state = "|1⟩"
-            print(f"""basis state: {basis_state}
-Amplitude: {self.qubits[i][1]}
-Probability: 100.00%
-Phase: 1.00""")
-        else:
-            pzero, pone = self.probability(i)
-            print(f"""basis state: |0⟩
-Amplitude: {self.qubits[i][0]}
-Probability: {pzero * 100}%
-Phase: {cmath.phase(self.qubits[i][0])}
------------------------""")
-            print(f"""basis state: |1⟩
-Amplitude: {self.qubits[i][1]}
-Probability: {pone * 100}%
-Phase: {cmath.phase(self.qubits[i][1])}
-""")
+        state_vector = [1]
+        for qubit in self.qubits:
+            nstate_vector = []
+            for amp in state_vector:
+                 nstate_vector.append(amp * qubit[0])
+                 nstate_vector.append(amp * qubit[1])
+            state_vector = nstate_vector
+
+        normalize = 0
+        for amp in state_vector:
+            normalize += (amp.real)**2
+        normalize = cmath.sqrt(normalize)
+        normalized_state_vector = []
+        for amp in state_vector:
+            normalized_state_vector.append(amp / normalize)
+
+        for i, amp in enumerate(normalized_state_vector):
+            prob = amp.real**2
+            if prob < 1e-7:
+                continue
+            basis_state = bin(i)[2:]
+            phase = cmath.phase(amp)
+            print(f"basis state: |{basis_state}⟩\n  amplitude: {amp}\n  probability: {"{:.2f}".format(prob * 100)}\n  phase: {"{:.5f}".format(phase)}\n")
+
+
 
     def reset(self, i):
         """Qubit must be reset"""
         self.qubits[i] = INITIAL_STATE
 
+
+qc = QuantumCircuit(2)
+qc.px(0)
+qc.h(0)
+qc.cnot(0, 1)
+qc.dump()
