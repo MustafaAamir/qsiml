@@ -11,7 +11,7 @@ ONE_STATE = [COMPLEX_ZERO, COMPLEX_ONE]
 ONE_SQRT2 = [complex(1 / cmath.sqrt(2)), complex(1 / cmath.sqrt(2))]
 
 
-class TestQuantipy(unittest.TestCase):
+class TestGates(unittest.TestCase):
     """
     testing hadamard:
     applying it once results quibits being HALF_SQRT
@@ -66,7 +66,6 @@ class TestQuantipy(unittest.TestCase):
         for i in range(5):
             qc.phase(i, pi_values[i])
             self.assertAlmostEqual(qc.qubits[i][1], COMPLEX_ZERO)
-            print(qc.qubits[i][0])
 
     def test_PHASE_PauliX(self):
         qc = QuantumCircuit(5)
@@ -232,3 +231,35 @@ class TestQuantipy(unittest.TestCase):
     Testing other identities mentioned in:
     https://en.wikipedia.org/wiki/List_of_quantum_logic_gates
     """
+
+
+class TestDraw(unittest.TestCase):
+    def test_aggregate(self):
+        """
+        |q0⟩————Y—————⨁———————
+        |q1⟩—X————————●——●——●—
+        |q2⟩———————Z—————⨁——│—
+        |q3⟩————————————————⨁—
+        """
+        qc = QuantumCircuit(4)
+        qc.px(1)
+        qc.py(0)
+        qc.pz(2)
+        qc.cnot(1, 0)
+        qc.cnot(1, 2)
+        qc.ccnot(0, 1, 3)
+        qc.draw("test_aggregate")
+
+        """
+        using ╂ to denote an entangled qubit in the middle.
+        Possible problem is that entagled bits can't be connected
+        via the | when the distance is more than 1 qubit, tho it's easy
+        to infer.
+        |q0⟩————Y—————⨁—————●—
+        |q1⟩—X————————●——●——╂—
+        |q2⟩———————Z—————⨁————
+        |q3⟩————————————————⨁—
+        Possible solution could be storing each qubit line as a string,
+        if the current qubit is not in any targets AND it's between
+        two entangled bits then add "-|-" otherwise "---"
+        """

@@ -1,6 +1,6 @@
 import random
 import cmath
-from typing import List,Tuple
+from typing import List, Tuple
 
 HALF_SQRT = complex((1 / 2) ** 0.5)
 COMPLEX_ZERO = complex(0)
@@ -26,7 +26,7 @@ class QuantumCircuit:
             n (int): The number of qubits to initialize (1 by default)
         """
         self.qubits: List[List[complex]] = [[complex(1), complex(0)] for _ in range(n)]
-        self.circuit_operations: List[Tuple[str, List[int]]] = []
+        self.circuit: List[Tuple[str, List[int]]] = []
 
     def __repr__(self):
         str_qubits = ""
@@ -41,7 +41,7 @@ class QuantumCircuit:
         [1,0]]
         """
         self.qubits[i] = [self.qubits[i][1], self.qubits[i][0]]
-        self.circuit_operations.append(('X', [i]))
+        self.circuit.append(("X", [i]))
 
     def py(self, i):
         """
@@ -49,7 +49,7 @@ class QuantumCircuit:
         [i,0]]
         """
         self.qubits[i] = [self.qubits[i][1] * -1j, self.qubits[i][0] * 1j]
-        self.circuit_operations.append(('Y', [i]))
+        self.circuit.append(("Y", [i]))
 
     def pz(self, i):
         """
@@ -57,7 +57,7 @@ class QuantumCircuit:
         [0,-1]]
         """
         self.qubits[i] = [self.qubits[i][0], self.qubits[i][1] * -1]
-        self.circuit_operations.append(('Z', [i]))
+        self.circuit.append(("Z", [i]))
 
     # Rotation Gates
     def rx(self, i, theta):
@@ -71,7 +71,7 @@ class QuantumCircuit:
             self.qubits[i][1] * cmath.cos(theta / 2)
             + self.qubits[i][0] * cmath.sin(theta / 2) * -1j,
         ]
-        self.circuit_operations.append(('Rx', [i]))
+        self.circuit.append(("Rx", [i]))
 
     def ry(self, i, theta):
         """
@@ -84,7 +84,7 @@ class QuantumCircuit:
             self.qubits[i][1] * cmath.cos(theta / 2)
             + self.qubits[i][0] * cmath.sin(theta / 2),
         ]
-        self.circuit_operations.append(('Ry', [i]))
+        self.circuit.append(("Ry", [i]))
 
     def rz(self, i, theta):
         """
@@ -97,7 +97,7 @@ class QuantumCircuit:
             self.qubits[i][0] * cmath.exp(-1j * (theta / 2)),
             self.qubits[i][1] * cmath.exp(1j * (theta / 2)),
         ]
-        self.circuit_operations.append(('Rz', [i]))
+        self.circuit.append(("Rz", [i]))
 
     def phase(self, i, theta):
         self.qubits[i] = [
@@ -108,25 +108,25 @@ class QuantumCircuit:
             self.qubits[i][1] = self.qubits[i][1].real
         elif (theta % (cmath.pi / 2)) == 0:
             self.qubits[i][1] = (self.qubits[i][1].imag) * 1j
-        self.circuit_operations.append(('P', [i]))
+        self.circuit.append(("P", [i]))
 
     def swap(self, i, j):
         temp = self.qubits[i]
         self.qubits[i] = self.qubits[j]
         self.qubits[j] = temp
-        self.circuit_operations.append(('SWAP', [i]))
+        self.circuit.append(("SWAP", [i, j]))
 
     def cnot(self, i, j):
         if self.qubits[i] == [0, 1]:
-            self.px(j)
-        self.circuit_operations.append(('CNOT', [i]))
+            self.qubits[j] = [self.qubits[j][1], self.qubits[j][0]]
+        self.circuit.append(("CNOT", [i, j]))
 
     def h(self, i):
         self.qubits[i] = [
             (1 / (2**0.5)) * (self.qubits[i][1] + self.qubits[i][0]),
             (1 / (2**0.5)) * ((-1 * self.qubits[i][1]) + self.qubits[i][0]),
         ]
-        self.circuit_operations.append(('H', [i]))
+        self.circuit.append(("H", [i]))
 
     def cswap(self, i, j, k):
         """
@@ -136,14 +136,17 @@ class QuantumCircuit:
             j, k (int) : indexes of the target bits
         """
         if self.qubits[i] == [0, 1]:
-            self.swap(j, k)
-        self.circuit_operations.append(('CSWAP', [i]))
+            temp = self.qubits[j]
+            self.qubits[j] = self.qubits[k]
+            self.qubits[k] = temp
+
+        self.circuit.append(("CSWAP", [i, j, k]))
 
     def ccnot(self, i, j, k):
         """ """
         if self.qubits[i] == [0, 1] and self.qubits[j] == [0, 1]:
-            self.px(k)
-        self.circuit_operations.append(('CCNOT', [i]))
+            self.qubits[k] = [self.qubits[k][1], self.qubits[k][0]]
+        self.circuit.append(("CCNOT", [i, j, k]))
 
     def probability(self, i):
         pzero = self.qubits[i][0].real ** 2
@@ -162,7 +165,7 @@ class QuantumCircuit:
         else:
             ret = 1
             self.qubits[i] = [complex(0), complex(1)]
-        self.circuit_operations.append(('M', [i]))
+        self.circuit.append(("M", [i]))
         return ret
 
     def measure_all(self):
@@ -178,13 +181,13 @@ class QuantumCircuit:
         for qubit in self.qubits:
             nstate_vector = []
             for amp in state_vector:
-                 nstate_vector.append(amp * qubit[0])
-                 nstate_vector.append(amp * qubit[1])
+                nstate_vector.append(amp * qubit[0])
+                nstate_vector.append(amp * qubit[1])
             state_vector = nstate_vector
 
         normalize = 0
         for amp in state_vector:
-            normalize += (amp.real)**2
+            normalize += (amp.real) ** 2
         normalize = cmath.sqrt(normalize)
         normalized_state_vector = []
         for amp in state_vector:
@@ -196,17 +199,75 @@ class QuantumCircuit:
                 continue
             basis_state = bin(i)[2:]
             phase = cmath.phase(amp)
-            print(f"basis state: |{basis_state}⟩\n  amplitude: {amp}\n  probability: {"{:.2f}".format(prob * 100)}\n  phase: {"{:.5f}".format(phase)}\n")
-
-
+            print(
+                f"basis state: |{basis_state}⟩\n  amplitude: {amp}\n  probability: {"{:.2f}".format(prob * 100)}\n  phase: {"{:.5f}".format(phase)}\n"
+            )
 
     def reset(self, i):
         """Qubit must be reset"""
         self.qubits[i] = INITIAL_STATE
 
+    def draw(self, header: str = ""):
+        """Print an ASCII representation of the quantum circuit.
+        circuit=[('Gate',[target]),('Gate',[target]),('Gate',[target])]"""
 
-qc = QuantumCircuit(2)
-qc.px(0)
-qc.h(0)
-qc.cnot(0, 1)
-qc.dump()
+        circuit = self.circuit
+        gate_symbols = {
+            "H": "H",
+            "X": "X",
+            "Y": "Y",
+            "M": "M",
+            "Z": "Z",
+            "CNOT": "⨁",
+            "SWAP": "x",
+            "CSWAP": "x",
+            "Rx": "R✕",
+            "Ry": "Rʏ",
+            "Rz": "Rᴢ",
+            "CCNOT": "⨁",
+            # Add more gate symbols as needed
+        }
+
+        num_qubits = len(self.qubits)
+        num_gates = len(circuit)
+        if header != "":
+            print(header)
+        # Print the header
+        # —
+        # Print the gates and qubits
+
+        for qubit in range(num_qubits):
+            print(f"|q{qubit}⟩", end="")
+            for gate_index in range(num_gates):
+                gate, targets = circuit[gate_index]
+                if qubit in targets:
+                    if len(targets) > 1:
+                        if qubit == targets[0]:
+                            print("—●—", end="")
+                        elif qubit == targets[-1]:
+                            if gate == "SWAP":
+                                print("—x—", end="")
+                            else:
+                                print(f"—{gate_symbols[gate]}—", end="")
+                        else:
+                            if gate == "CCNOT":
+                                print("—╂—", end="")
+                            else:
+                                print("—│—", end="")
+                    else:
+                        if gate in ("Rx", "Ry", "Rz"):
+                            print(f"—{gate_symbols[gate]}", end="")
+                        else:
+                            print(f"—{gate_symbols[gate]}—", end="")
+                else:
+                    print("———", end="")
+            print()
+
+    def operations(self, msg: str = ""):
+        print(msg)
+        for i, (gate, targets) in enumerate(self.circuit):
+            qubit_plural = "qubit"
+            if len(targets) > 1:
+                qubit_plural += "s"
+            target_str = ", ".join(map(str, targets))
+            print(f"{i + 1}. {gate} on {qubit_plural} {target_str}")
