@@ -399,9 +399,7 @@ class QuantumCircuit:
                 continue
             basis_state = bin(i)[2:]
             phase = cmath.phase(amp)
-            print(
-                f"basis state: |{basis_state}⟩\n  amplitude: {amp}\n  probability: {"{:.2f}".format(prob * 100)}\n  phase: {"{:.5f}".format(phase)}\n"
-            )
+            print(f"basis state: |{basis_state}⟩\n  amplitude: {amp}\n  probability: {"{:.2f}".format(prob * 100)}\n  phase: {"{:.5f}".format(phase)}\n")
 
     def reset(self, i):
         """
