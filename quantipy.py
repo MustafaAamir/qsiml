@@ -417,6 +417,7 @@ class QuantumCircuit:
         _check_index(i, self.qubits_count)
         self.qubits[i] = INITIAL_STATE
 
+
     def draw(self, header: str = ""):
         """
         Print an ASCII representation of the quantum circuit.
@@ -434,7 +435,7 @@ class QuantumCircuit:
             "CNOT": "⨁",
             "SWAP": "x",
             "CSWAP": "x",
-            "Rx": "R✕",
+            "Rx": "Rx",
             "Ry": "Rʏ",
             "Rz": "Rᴢ",
             "CCNOT": "⨁",
@@ -446,6 +447,7 @@ class QuantumCircuit:
         if header != "":
             print(header)
         for qubit in range(num_qubits):
+            entangle=[' ' for i in  range(3*num_gates+4)]
             print(f"|q{qubit}⟩", end="")
             for gate_index in range(num_gates):
                 gate, targets = circuit[gate_index]
@@ -459,14 +461,39 @@ class QuantumCircuit:
                             else:
                                 print(f"—{gate_symbols[gate]}—", end="")
                         else:
-                            print("—│—", end="")
+                            print("—●—", end="")
+                        
+                        if targets[-1]>targets[0]:
+                            if qubit<targets[-1] and qubit>=targets[0]:
+                                entangle[3*gate_index+5]="│"
+                        else:
+                            if qubit>=targets[-1] and qubit<targets[0]:
+                                entangle[3*gate_index+5]="│"
+                        if len(targets)==3:
+                            if targets[-1]>targets[1]:
+                                if qubit<targets[-1] and qubit>=targets[1]:
+                                    entangle[3*gate_index+5]="│"
+                            else:
+                                if qubit>=targets[-1] and qubit<targets[1]:
+                                    entangle[3*gate_index+5]="│"
+
                     else:
                         if gate in ("Rx", "Ry", "Rz"):
                             print(f"—{gate_symbols[gate]}", end="")
+                            entangle[3*gate_index+5]="π"
                         else:
                             print(f"—{gate_symbols[gate]}—", end="")
                 else:
-                    print("———", end="")
+                    if qubit<targets[-1] and qubit>=targets[0] or qubit>=targets[-1] and qubit<targets[0]:
+                        print("—│—", end="")
+                        entangle[3*gate_index+5]="│"
+                    else:
+                        print("———", end="")
+            print()
+            for i in range(len(entangle)):
+          
+                print(entangle[i],end='')
+            
             print()
 
     def operations(self, header: str = ""):
