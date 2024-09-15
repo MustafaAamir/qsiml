@@ -377,4 +377,25 @@ class TestStates(unittest.TestCase):
 
         therefore i'm getting the correct tensor product
         has to be an index error or something
+
+        UNLESS
+
+        We entangled qubits 0 and 2 by applying a cnot beforehand
+        0, while entangled with 2, is used as a control bit for 3 as well
+
+        for reasons beyond my understanding, the state of qubit[3] should not flip
+        instead of this (q[3] ⊗ state_vector)
+          [1, 0] ⊗ [0, 0, 0, 0, 1/sqrt2, 0, -1/sqrt2, 0] =
+        it should be
+          [0, 1] ⊗ [0, 0, 0, 0, 1/sqrt2, 0, -1/sqrt2, 0] =
+
+        ??????
+
+        this gives us
+        [0,0,0,0,0,0,0,0,0,1/sqrt2, 0, 0, 0, -1/sqrt2, 0, 0]
+
+        okay never mind, the second state is in the right place (1101)
+        but the first one is ahead by one
+
+        kmsing
         """
