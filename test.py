@@ -267,4 +267,114 @@ class TestDraw(unittest.TestCase):
         Possible solution could be storing each qubit line as a string,
         if the current qubit is not in any targets AND it's between
         two entangled bits then add "-|-" otherwise "---"
+"""
+class TestStates(unittest.TestCase):
+    """
+    hceck if i'm calculating the state vector correctly
+    """
+    def test_first(self):
+        """
+        should be
+        1000, 1101
+        not
+        1000, 1100
+        """
+        qc = QuantumCircuit(4)
+        qc.px(1)
+        qc.px(0)
+        qc.px(2)
+        qc.cnot(0, 2)
+        qc.h(1)
+        qc.ccnot(0, 1, 3)
+        qc.operations("Testing states")
+        print()
+        print(qc)
+        qc.dump()
+
+        """
+        first px to qubit 1
+        [0j, 0j, 0j, 0j, (1+0j), 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j]
+        (correct)
+        ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+        ┃ Basis states   ┃ |100⟩      ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Amplitudes     ┃ 1.0 + 0.0i ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Probabilties   ┃ 100.00%    ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Phases         ┃ 0π         ┃
+        ┗━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━┛
+        px to qubit 0
+        [0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, (1+0j), 0j, 0j, 0j]
+        (correct)
+        ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+        ┃ Basis states   ┃ |1100⟩     ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Amplitudes     ┃ 1.0 + 0.0i ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Probabilties   ┃ 100.00%    ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Phases         ┃ 0π         ┃
+        ┗━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━┛
+        px to qubit 2
+        [0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, (1+0j), 0j]
+        (correct)
+        ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+        ┃ Basis states   ┃ |1110⟩     ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Amplitudes     ┃ 1.0 + 0.0i ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Probabilties   ┃ 100.00%    ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Phases         ┃ 0π         ┃
+        ┗━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━┛
+        ccnot (0, 2)
+        [0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, (1+0j), 0j, 0j, 0j]
+        (correct)
+        ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+        ┃ Basis states   ┃ |1100⟩     ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Amplitudes     ┃ 1.0 + 0.0i ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Probabilties   ┃ 100.00%    ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━┫
+        ┃ Phases         ┃ 0π         ┃
+        ┗━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━┛
+        Hadamard to qubit 1
+        [0j, 0j, 0j, 0j, 0j, 0j, 0j, 0j, (0.7071067811865476+0j), 0j, 0j, 0j, (-0.7071067811865476+0j), 0j, 0j, 0j]
+        (correct)
+        ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+        ┃ Basis states   ┃ |1000⟩        ┃ |1100⟩         ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━┫
+        ┃ Amplitudes     ┃ 0.7071 + 0.0i ┃ -0.7071 + 0.0i ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━┫
+        ┃ Probabilties   ┃ 50.00%        ┃ 50.00%         ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━┫
+        ┃ Phases         ┃ 0π            ┃ 1π             ┃
+        ┗━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┛
+        ccnot 0 1 3
+        [0, 0, 0, 0, 0, 0, 0, 0, (0.7071067811865476+0), 0, 0, 0, (-0.7071067811865476+0), 0, 0, 0]
+        (INCORRECT)
+
+        ┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+        ┃ Basis states   ┃ |1000⟩        ┃ |1100⟩         ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━┫
+        ┃ Amplitudes     ┃ 0.7071 + 0.0i ┃ -0.7071 + 0.0i ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━┫
+        ┃ Probabilties   ┃ 50.00%        ┃ 50.00%         ┃
+        ┣━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━┫
+        ┃ Phases         ┃ 0π            ┃ 1π             ┃
+        ┗━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┛
+
+        solving for the kronecker product
+          [0, 1] ⊗ [1/(2)^0.5, -1/(2)^0.5] = [0, 0, 1/sqrt2, -1/sqrt2]
+          [1, 0] ⊗ [1/(2)^0.5, -1/(2)^0.5] = [0, 0, 0, 0, 1/sqrt2, 0, -1/sqrt2, 0]
+          [1, 0] ⊗ [0, 0, 0, 0, 1/sqrt2, 0, -1/sqrt2, 0] =
+          [0, 0, 0, 0, 0, 0, 0, 0, 1/sqrt2, 0, 0, 0, -1/sqrt2, 0, 0, 0]
+
+          comparing it with the one we got
+          [0, 0, 0, 0, 0, 0, 0, 0, 1/sqrt2, 0, 0, 0, -1/sqrt2, 0, 0, 0]
+
+        therefore i'm getting the correct tensor product
+        has to be an index error or something
         """

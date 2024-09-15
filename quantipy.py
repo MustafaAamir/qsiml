@@ -1,6 +1,7 @@
 import random
 import cmath
 from typing import List, Tuple
+import tabulate
 
 HALF_SQRT = complex((1 / 2) ** 0.5)
 COMPLEX_ZERO = complex(0)
@@ -52,11 +53,9 @@ class QuantumCircuit:
             Qubit {i}: [alpha, beta]
         where alpha and beta are the individual probability amplitudes for each state.
         """
-        str_qubits = ""
-        for i, qubit in enumerate(self.qubits):
-            str_qubits += f"Quibit {i}: [{qubit[0]}, {qubit[1]}]\n"
-        return str_qubits
-
+        print("Circuit Diagram: ")
+        self.draw()
+        return ""
         # PaulliGates
 
     def px(self, i: int):
@@ -393,14 +392,30 @@ class QuantumCircuit:
         for amp in state_vector:
             normalized_state_vector.append(amp / normalize)
 
+        basis_states, amplitudes, probabilties, phases = ["Basis states"], ["Amplitudes"], ["Probabilties"], ["Phases"]
+        #correct until here
+        print(normalized_state_vector)
         for i, amp in enumerate(normalized_state_vector):
             prob = amp.real**2
             if prob < 1e-8:
                 continue
-            basis_state = bin(i)[2:]
+            probabilties.append("{:.2f}%".format(prob * 100))
+            basis_state = "|" + bin(i)[2:] + "⟩"
+            basis_states.append(basis_state)
             phase = cmath.phase(amp)
-            print(f"basis state: |{basis_state}⟩\n  amplitude: {amp}\n  probability: {"{:.2f}".format(prob * 100)}\n  phase: {"{:.5f}".format(phase)}\n")
+            if (abs(phase) % cmath.pi == 0):
+                coefficient = phase // cmath.pi
+                phase = str(int(coefficient)) + "π"
+                phases.append(phase)
+            else:
+                phases.append("{:.4}".format(phase))
+            sign = "+"
+            if (amp.imag < 0):
+                sign = "-"
+            amplitudes.append("{:.4} ".format(amp.real) + sign + " {:.4}i".format(amp.imag))
 
+        table = [basis_states, amplitudes, probabilties, phases]
+        print(tabulate.tabulate(table, tablefmt="heavy_grid", headers="firstrow"))
     def reset(self, i):
         """
         Reset the i-th qubit to the |0⟩ state.
@@ -414,7 +429,6 @@ class QuantumCircuit:
 
         _check_index(i, self.qubits_count)
         self.qubits[i] = INITIAL_STATE
-
 
     def draw(self, header: str = ""):
         """
@@ -445,7 +459,7 @@ class QuantumCircuit:
         if header != "":
             print(header)
         for qubit in range(num_qubits):
-            entangle=[' ' for i in  range(3*num_gates+4)]
+            entangle = [" " for _ in range(3 * num_gates + 4)]
             print(f"|q{qubit}⟩", end="")
             for gate_index in range(num_gates):
                 gate, targets = circuit[gate_index]
@@ -460,38 +474,42 @@ class QuantumCircuit:
                                 print(f"—{gate_symbols[gate]}—", end="")
                         else:
                             print("—●—", end="")
-                        
-                        if targets[-1]>targets[0]:
-                            if qubit<targets[-1] and qubit>=targets[0]:
-                                entangle[3*gate_index+5]="│"
+
+                        if targets[-1] > targets[0]:
+                            if qubit < targets[-1] and qubit >= targets[0]:
+                                entangle[3 * gate_index + 5] = "│"
                         else:
-                            if qubit>=targets[-1] and qubit<targets[0]:
-                                entangle[3*gate_index+5]="│"
-                        if len(targets)==3:
-                            if targets[-1]>targets[1]:
-                                if qubit<targets[-1] and qubit>=targets[1]:
-                                    entangle[3*gate_index+5]="│"
+                            if qubit >= targets[-1] and qubit < targets[0]:
+                                entangle[3 * gate_index + 5] = "│"
+                        if len(targets) == 3:
+                            if targets[-1] > targets[1]:
+                                if qubit < targets[-1] and qubit >= targets[1]:
+                                    entangle[3 * gate_index + 5] = "│"
                             else:
-                                if qubit>=targets[-1] and qubit<targets[1]:
-                                    entangle[3*gate_index+5]="│"
+                                if qubit >= targets[-1] and qubit < targets[1]:
+                                    entangle[3 * gate_index + 5] = "│"
 
                     else:
                         if gate in ("Rx", "Ry", "Rz"):
                             print(f"—{gate_symbols[gate]}", end="")
-                            entangle[3*gate_index+5]="π"
+                            entangle[3 * gate_index + 5] = "π"
                         else:
                             print(f"—{gate_symbols[gate]}—", end="")
                 else:
-                    if qubit<targets[-1] and qubit>=targets[0] or qubit>=targets[-1] and qubit<targets[0]:
+                    if (
+                        qubit < targets[-1]
+                        and qubit >= targets[0]
+                        or qubit >= targets[-1]
+                        and qubit < targets[0]
+                    ):
                         print("—│—", end="")
-                        entangle[3*gate_index+5]="│"
+                        entangle[3 * gate_index + 5] = "│"
                     else:
                         print("———", end="")
             print()
             for i in range(len(entangle)):
-          
-                print(entangle[i],end='')
-            
+                print(entangle[i], end="")
+
             print()
 
     def operations(self, header: str = ""):
@@ -508,3 +526,20 @@ class QuantumCircuit:
                 qubit_plural += "s"
             target_str = ", ".join(map(str, targets))
             print(f"{i + 1}. {gate} on {qubit_plural} {target_str}")
+
+
+qc = QuantumCircuit(4)
+qc.px(1)
+qc.dump("px to qubit 1")
+qc.px(0)
+qc.dump("px to qubit 0")
+qc.px(2)
+qc.dump("px to qubit 2")
+qc.cnot(0, 2)
+qc.dump("ccnot (0, 2)")
+qc.h(1)
+qc.dump("Hadamard to qubit 1")
+qc.ccnot(0, 1, 3)
+print(qc.qubits)
+qc.dump("ccnot 0 1 3")
+print(qc)
