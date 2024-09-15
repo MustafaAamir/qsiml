@@ -11,6 +11,18 @@ ONE_STATE = [COMPLEX_ZERO, COMPLEX_ONE]
 ONE_SQRT2 = [complex(1 / cmath.sqrt(2)), complex(1 / cmath.sqrt(2))]
 
 
+def _check_index(i, qubits_count: int):
+    if i < 0 or i > qubits_count - 1:
+        raise IndexError(
+            f"Qubit index '{i}' is out of range. Valid range is 0 to {qubits_count - 1}"
+        )
+
+
+def _check_distinct(args: List[int]):
+    if len(args) != len(set(args)):
+        raise ValueError("Arguments to need to be distinct")
+
+
 class QuantumCircuit:
     """
     A class representing a quantum circuit with qubits and gate operations.
@@ -19,21 +31,19 @@ class QuantumCircuit:
     including various quantum gates and measurement operations.
 
     Attributes:
-        qubits (List[List[complex]]): A list of qubits, where each qubit is represented
-                                      as a 2x1 column vector of complex numbers.
-        circuit (List[Tuple[str, List[int]]]): A list of operations performed
-                                                          on the circuit, where each operation
-                                                          is a tuple of the gate name and the
-                                                          qubit indices it acts upon.
+        qubits (List[List[complex]]): A list of qubits, where each qubit is represented as a 2x1 column vector of complex numbers.
+        circuit (List[Tuple[str, List[int]]]): A list of operations performed on the circuit, where each operation is a tuple of the gate name and the qubit indices it acts upon.
+        qubits_count (int): Number of qubits in the circuit
     """
 
     def __init__(self, n: int = 1):
         """
         Initializes qubits with n qubits with a zero state [1, 0]
-        Parameters:
-            n (int): The number of qubits to initialize (1 by default)
+        Args:
+            n (int, optional): The number of qubits to initialize (1 by default)
         """
         self.qubits: List[List[complex]] = [INITIAL_STATE for _ in range(n)]
+        self.qubits_count: int = n
         self.circuit: List[Tuple[str, List[int]]] = []
 
     def __repr__(self):
@@ -47,14 +57,20 @@ class QuantumCircuit:
             str_qubits += f"Quibit {i}: [{qubit[0]}, {qubit[1]}]\n"
         return str_qubits
 
-    # PaulliGates
+        # PaulliGates
+
     def px(self, i: int):
         """
         Apply the Pauli-X gate (NOT gate) to the i-th qubit.
         The Pauli-X gate flips the state of the qubit, transforming |0⟩ to |1⟩ and vice versa.
+
         Args:
             i (int): The index of the qubit to apply the gate to.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
         """
+        _check_index(i, self.qubits_count)
         self.qubits[i] = [self.qubits[i][1], self.qubits[i][0]]
         self.circuit.append(("X", [i]))
 
@@ -65,7 +81,12 @@ class QuantumCircuit:
 
         Args:
             i (int): The index of the qubit to apply the gate to.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
+
         """
+        _check_index(i, self.qubits_count)
         self.qubits[i] = [self.qubits[i][1] * -1j, self.qubits[i][0] * 1j]
         self.circuit.append(("Y", [i]))
 
@@ -76,8 +97,12 @@ class QuantumCircuit:
 
         Args:
             i (int): The index of the qubit to apply the gate to.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
         """
 
+        _check_index(i, self.qubits_count)
         self.qubits[i] = [self.qubits[i][0], self.qubits[i][1] * -1]
         self.circuit.append(("Z", [i]))
 
@@ -90,7 +115,12 @@ class QuantumCircuit:
         Args:
             i (int): The index of the qubit to apply the gate to.
             theta (float): The angle of rotation in radians.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
         """
+
+        _check_index(i, self.qubits_count)
         self.qubits[i] = [
             self.qubits[i][0] * cmath.cos(theta / 2)
             + self.qubits[i][1] * cmath.sin(theta / 2) * -1j,
@@ -106,8 +136,12 @@ class QuantumCircuit:
         Args:
             i (int): The index of the qubit to apply the gate to.
             theta (float): The angle of rotation in radians.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
         """
 
+        _check_index(i, self.qubits_count)
         self.qubits[i] = [
             self.qubits[i][0] * cmath.cos(theta / 2)
             + self.qubits[i][1] * cmath.sin(theta / 2) * -1,
@@ -123,7 +157,11 @@ class QuantumCircuit:
         Args:
             i (int): The index of the qubit to apply the gate to.
             theta (float): The angle of rotation in radians.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
         """
+        _check_index(i, self.qubits_count)
         self.qubits[i] = [
             self.qubits[i][0] * cmath.exp(-1j * (theta / 2)),
             self.qubits[i][1] * cmath.exp(1j * (theta / 2)),
@@ -138,7 +176,11 @@ class QuantumCircuit:
         Args:
             i (int): The index of the qubit to apply the gate to.
             theta (float): The phase angle in radians.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
         """
+        _check_index(i, self.qubits_count)
         self.qubits[i] = [
             self.qubits[i][0],
             complex(self.qubits[i][1] * (cmath.exp(1j * theta))),
@@ -156,7 +198,16 @@ class QuantumCircuit:
         Args:
             i (int): The index of the first qubit.
             j (int): The index of the second qubit.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
+            IndexError if j < 0 or j > self.qubits_count
+
+            ValueError if i and j aren't distinct
         """
+        _check_index(i, self.qubits_count)
+        _check_index(j, self.qubits_count)
+        _check_distinct([i, j])
         temp = self.qubits[i]
         self.qubits[i] = self.qubits[j]
         self.qubits[j] = temp
@@ -170,7 +221,16 @@ class QuantumCircuit:
         Args:
             i (int): The index of the control qubit.
             j (int): The index of the target qubit.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
+            IndexError if j < 0 or j > self.qubits_count
+
+            ValueError if i and j aren't distinct
         """
+        _check_distinct([i, j])
+        _check_index(i, self.qubits_count)
+        _check_index(j, self.qubits_count)
         if self.qubits[i] == ONE_STATE:
             self.qubits[j] = [self.qubits[j][1], self.qubits[j][0]]
         self.circuit.append(("CNOT", [i, j]))
@@ -181,7 +241,11 @@ class QuantumCircuit:
         The H gate creates an equal superposition of |0⟩ and |1⟩ states.
         Args:
             i (int): The index of the qubit to apply the gate to.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
         """
+        _check_index(i, self.qubits_count)
         self.qubits[i] = [
             (1 / (2**0.5)) * (self.qubits[i][1] + self.qubits[i][0]),
             (1 / (2**0.5)) * ((-1 * self.qubits[i][1]) + self.qubits[i][0]),
@@ -197,7 +261,19 @@ class QuantumCircuit:
             i (int): The index of the control qubit.
             j (int): The index of the first target qubit.
             k (int): The index of the second target qubit.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
+            IndexError if j < 0 or j > self.qubits_count
+            IndexError if k < 0 or k> self.qubits_count
+
+
+            ValueError if i, j, and k aren't distinct
         """
+        _check_distinct([i, j, k])
+        _check_index(i, self.qubits_count)
+        _check_index(j, self.qubits_count)
+        _check_index(k, self.qubits_count)
         if self.qubits[i] == ONE_STATE:
             temp = self.qubits[j]
             self.qubits[j] = self.qubits[k]
@@ -214,7 +290,19 @@ class QuantumCircuit:
             i (int): The index of the first control qubit.
             j (int): The index of the second control qubit.
             k (int): The index of the target qubit.
+
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
+            IndexError if j < 0 or j > self.qubits_count
+            IndexError if k < 0 or k > self.qubits_count
+
+            ValueError if i, j and k aren't distinct
         """
+        _check_index(i, self.qubits_count)
+        _check_index(j, self.qubits_count)
+        _check_index(k, self.qubits_count)
+        _check_distinct([i, j, k])
         if self.qubits[i] == ONE_STATE and self.qubits[j] == ONE_STATE:
             self.qubits[k] = [self.qubits[k][1], self.qubits[k][0]]
         self.circuit.append(("CCNOT", [i, j, k]))
@@ -228,7 +316,12 @@ class QuantumCircuit:
 
         Returns:
             Tuple[float, float]: A tuple containing the probabilities (p_zero, p_one).
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
         """
+
+        _check_index(i, self.qubits_count)
         pzero = self.qubits[i][0].real ** 2
         pone = self.qubits[i][1].real ** 2
         tp = pzero + pone
@@ -246,7 +339,11 @@ class QuantumCircuit:
 
         Returns:
             int: The result of the measurement (0 or 1).
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
         """
+        _check_index(i, self.qubits_count)
         pzero, _ = self.probability(i)
         random_float = random.random()
         if random_float < pzero:
@@ -268,7 +365,7 @@ class QuantumCircuit:
         """
 
         measured_values = []
-        measured_values.append(self.measure(i) for i in range(len(self.qubits)))
+        measured_values.append(self.measure(i) for i in range(self.qubits_count))
         return measured_values
 
     def dump(self, msg: str = ""):
@@ -312,7 +409,12 @@ class QuantumCircuit:
 
         Args:
             i (int): The index of the qubit to reset.
+
+        Raises:
+            IndexError if i < 0 or i > self.qubits_count
         """
+
+        _check_index(i, self.qubits_count)
         self.qubits[i] = INITIAL_STATE
 
     def draw(self, header: str = ""):
@@ -339,7 +441,7 @@ class QuantumCircuit:
             # Add more gate symbols as needed
         }
 
-        num_qubits = len(self.qubits)
+        num_qubits = self.qubits_count
         num_gates = len(circuit)
         if header != "":
             print(header)
