@@ -324,8 +324,10 @@ class QuantumCircuit:
         pzero = self.qubits[i][0].real ** 2
         pone = self.qubits[i][1].real ** 2
         tp = pzero + pone
-        pzero = pzero / tp
-        pone = pone / tp
+        # division by zero errors somehow
+        if tp != 0:
+            pzero = pzero / tp
+            pone = pone / tp
         return pzero, pone
 
     def measure(self, i: int) -> int:
@@ -389,12 +391,17 @@ class QuantumCircuit:
             normalize += (amp.real) ** 2
         normalize = cmath.sqrt(normalize)
         normalized_state_vector = []
-        for amp in state_vector:
-            normalized_state_vector.append(amp / normalize)
+        if normalize != 0:
+            for amp in state_vector:
+                normalized_state_vector.append(amp / normalize)
 
-        basis_states, amplitudes, probabilties, phases = ["Basis states"], ["Amplitudes"], ["Probabilties"], ["Phases"]
-        #correct until here
-        print(normalized_state_vector)
+        basis_states, amplitudes, probabilties, phases = (
+            ["Basis states"],
+            ["Amplitudes"],
+            ["Probabilties"],
+            ["Phases"],
+        )
+        # correct until here
         for i, amp in enumerate(normalized_state_vector):
             prob = amp.real**2
             if prob < 1e-8:
@@ -403,19 +410,22 @@ class QuantumCircuit:
             basis_state = "|" + bin(i)[2:] + "⟩"
             basis_states.append(basis_state)
             phase = cmath.phase(amp)
-            if (abs(phase) % cmath.pi == 0):
+            if abs(phase) % cmath.pi == 0:
                 coefficient = phase // cmath.pi
                 phase = str(int(coefficient)) + "π"
                 phases.append(phase)
             else:
                 phases.append("{:.4}".format(phase))
             sign = "+"
-            if (amp.imag < 0):
+            if amp.imag < 0:
                 sign = "-"
-            amplitudes.append("{:.4} ".format(amp.real) + sign + " {:.4}i".format(amp.imag))
+            amplitudes.append(
+                "{:.4} ".format(amp.real) + sign + " {:.4}i".format(amp.imag)
+            )
 
         table = [basis_states, amplitudes, probabilties, phases]
         print(tabulate.tabulate(table, tablefmt="heavy_grid", headers="firstrow"))
+
     def reset(self, i):
         """
         Reset the i-th qubit to the |0⟩ state.
@@ -460,60 +470,52 @@ class QuantumCircuit:
             print(header)
         for qubit in range(num_qubits):
             entangle = [" " for _ in range(3 * num_gates + 4)]
-            print(f"|q{qubit}⟩", end="")
+            line_str = ""
+            line_str += f"|q{qubit}⟩"
             for gate_index in range(num_gates):
                 gate, targets = circuit[gate_index]
+                TARGET = targets[-1]
                 if qubit in targets:
                     if len(targets) > 1:
-                        if gate=='SWAP':
-                            print("—x—", end="")
+                        if gate == "SWAP":
+                            line_str += "—x—"
+                        elif qubit == targets[0]:
+                            line_str += "—●—"
+                        elif qubit == TARGET:
+                            line_str += f"—{gate_symbols[gate]}—"
+                        elif gate == "CSWAP":
+                            line_str += "—x—"
                         else:
-                            if qubit == targets[0]:
-                                print("—●—", end="")
-                            elif qubit == targets[-1]:
-                                print(f"—{gate_symbols[gate]}—", end="")
-                            else:
-                                if gate == 'CSWAP':
-                                    print("—x—", end="")
-                                else:
-                                    print("—●—", end="")
+                            line_str += "—●—"
 
-                        if targets[-1] > targets[0]:
-                            if qubit < targets[-1] and qubit >= targets[0]:
-                                entangle[3 * gate_index + 5] = "│"
-                        else:
-                            if qubit >= targets[-1] and qubit < targets[0]:
-                                entangle[3 * gate_index + 5] = "│"
-                        if len(targets) == 3:
-                            if targets[-1] > targets[1]:
-                                if qubit < targets[-1] and qubit >= targets[1]:
-                                    entangle[3 * gate_index + 5] = "│"
-                            else:
-                                if qubit >= targets[-1] and qubit < targets[1]:
-                                    entangle[3 * gate_index + 5] = "│"
+                        if (
+                            (qubit < TARGET and qubit >= targets[0])
+                            or (qubit >= TARGET and qubit < targets[0])
+                        ):
+                            entangle[3 * gate_index + 5] = "│"
+
+                        if (len(targets) == 3) and (
+                            (qubit < TARGET and qubit >= targets[1])
+                            or (qubit >= TARGET and qubit < targets[1])
+                        ):
+                            entangle[3 * gate_index + 5] = "│"
 
                     else:
                         if gate in ("Rx", "Ry", "Rz"):
-                            print(f"—{gate_symbols[gate]}", end="")
-                            entangle[3 * gate_index + 5] = "π"
+                            line_str += f"—{gate_symbols[gate]}"
+                            # rxyz take a variable argument theta. Pxyz always rotate by π
+                            entangle[3 * gate_index + 5] = "θ"
                         else:
-                            print(f"—{gate_symbols[gate]}—", end="")
+                            line_str += f"—{gate_symbols[gate]}—"
+
                 else:
-                    if (
-                        qubit < targets[-1]
-                        and qubit >= targets[0]
-                        or qubit >= targets[-1]
-                        and qubit < targets[0]
-                    ):
-                        print("—│—", end="")
+                    if (qubit < max(targets) and qubit > min(targets)):
+                        line_str += "—│—"
                         entangle[3 * gate_index + 5] = "│"
                     else:
-                        print("———", end="")
-            print()
-            for i in range(len(entangle)):
-                print(entangle[i], end="")
-
-            print()
+                        line_str += "———"
+            print(line_str)
+            print(''.join(entangle))
 
     def operations(self, header: str = ""):
         """
@@ -531,72 +533,65 @@ class QuantumCircuit:
             print(f"{i + 1}. {gate} on {qubit_plural} {target_str}")
 
 
-#gen random quantum circuits
+# gen random quantum circuits
 
-def gen_rand(n,d):
+
+def gen_rand(n, d):
     """
     n :int => number of desired qubits
     d :int => number of desired gates
     """
-    qc=QuantumCircuit(n)
-    for i in range(d):
-        random_size=random.randint(0,2)
-        if random_size==0:
-            random_gate=random.choice(['px','py','pz','rx','ry','rz','h','m'])
-            if random_gate=='px':
-                qc.px(random.randint(0,n-1))
-            elif random_gate=='py':
-                qc.py(random.randint(0,n-1))
-            elif random_gate=='pz':
-                qc.pz(random.randint(0,n-1))
-            elif random_gate=='h':
-                qc.h(random.randint(0,n-1))
-            elif random_gate=='m':
-                qc.measure(random.randint(0,n-1))
-            elif random_gate=='rx':
-                qc.rx(random.randint(0,n-1),random.random()*cmath.pi)
-            elif random_gate=='ry':
-                qc.ry(random.randint(0,n-1),random.random()*cmath.pi)
-            elif random_gate=='rz':
-                qc.rz(random.randint(0,n-1),random.random()*cmath.pi)
-            
-        elif random_size==1:
-            random_gate=random.choice(['cnot','swap']) 
-            a=random.randint(0,n-1)
-            b=random.randint(0,n-1)
-            while b==a:
-                b=random.randint(0,n-1)
-            if random_gate=='cnot':
-                qc.cnot(a,b)
+    qc = QuantumCircuit(n)
+    for _ in range(d):
+        random_size = random.randint(0, 2)
+        if random_size == 0:
+            RANDOM_IDX = random.randint(0, n - 1)
+            RANDOM_ANGLE = random.random() * cmath.pi
+            random_gate = random.choice(["px", "py", "pz", "rx", "ry", "rz", "h", "m"])
+            if random_gate == "px":
+                qc.px(RANDOM_IDX)
+            elif random_gate == "py":
+                qc.py(RANDOM_IDX)
+            elif random_gate == "pz":
+                qc.pz(RANDOM_IDX)
+            elif random_gate == "h":
+                qc.h(RANDOM_IDX)
+            elif random_gate == "m":
+                qc.measure(RANDOM_IDX)
+            elif random_gate == "rx":
+                qc.rx(RANDOM_IDX, RANDOM_ANGLE)
+            elif random_gate == "ry":
+                qc.ry(RANDOM_IDX, RANDOM_ANGLE)
+            elif random_gate == "rz":
+                qc.rz(RANDOM_IDX, RANDOM_ANGLE)
+
+        elif random_size == 1:
+            random_gate = random.choice(["cnot", "swap"])
+            a = random.randint(0, n - 1)
+            b = random.randint(0, n - 1)
+            while b == a:
+                b = random.randint(0, n - 1)
+            if random_gate == "cnot":
+                qc.cnot(a, b)
             else:
-                qc.swap(a,b)
+                qc.swap(a, b)
         else:
-            random_gate=random.choice(['ccnot','cswap'])
-            a=random.randint(0,n-1)
-            b=random.randint(0,n-1)
-            c=random.randint(0,n-1)
-            while b==a or c==a or c==b:
-                b=random.randint(0,n-1)
-                c=random.randint(0,n-1)
-            if random_gate=='ccnot':
-                qc.ccnot(a,b,c)
+            random_gate = random.choice(["ccnot", "cswap"])
+            a = random.randint(0, n - 1)
+            b = random.randint(0, n - 1)
+            c = random.randint(0, n - 1)
+            while b == a or c == a or c == b:
+                b = random.randint(0, n - 1)
+                c = random.randint(0, n - 1)
+            if random_gate == "ccnot":
+                qc.ccnot(a, b, c)
             else:
-                qc.cswap(a,b,c)
-        
+                qc.cswap(a, b, c)
+
     return qc
 
-qc = QuantumCircuit(4)
-qc.px(1)
-qc.dump("px to qubit 1")
-qc.px(0)
-qc.dump("px to qubit 0")
-qc.px(2)
-qc.dump("px to qubit 2")
-qc.cnot(0, 2)
-qc.dump("ccnot (0, 2)")
-qc.h(1)
-qc.dump("Hadamard to qubit 1")
-qc.ccnot(0, 1, 3)
-print(qc.qubits)
-qc.dump("ccnot 0 1 3")
+
+qc = gen_rand(5, 10)
 print(qc)
+qc.operations()
+qc.dump()
