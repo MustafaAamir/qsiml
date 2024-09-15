@@ -465,15 +465,18 @@ class QuantumCircuit:
                 gate, targets = circuit[gate_index]
                 if qubit in targets:
                     if len(targets) > 1:
-                        if qubit == targets[0]:
-                            print("—●—", end="")
-                        elif qubit == targets[-1]:
-                            if gate == "SWAP":
-                                print("—x—", end="")
-                            else:
-                                print(f"—{gate_symbols[gate]}—", end="")
+                        if gate=='SWAP':
+                            print("—x—", end="")
                         else:
-                            print("—●—", end="")
+                            if qubit == targets[0]:
+                                print("—●—", end="")
+                            elif qubit == targets[-1]:
+                                print(f"—{gate_symbols[gate]}—", end="")
+                            else:
+                                if gate == 'CSWAP':
+                                    print("—x—", end="")
+                                else:
+                                    print("—●—", end="")
 
                         if targets[-1] > targets[0]:
                             if qubit < targets[-1] and qubit >= targets[0]:
@@ -527,6 +530,60 @@ class QuantumCircuit:
             target_str = ", ".join(map(str, targets))
             print(f"{i + 1}. {gate} on {qubit_plural} {target_str}")
 
+
+#gen random quantum circuits
+
+def gen_rand(n,d):
+    """
+    n :int => number of desired qubits
+    d :int => number of desired gates
+    """
+    qc=QuantumCircuit(n)
+    for i in range(d):
+        random_size=random.randint(0,2)
+        if random_size==0:
+            random_gate=random.choice(['px','py','pz','rx','ry','rz','h','m'])
+            if random_gate=='px':
+                qc.px(random.randint(0,n-1))
+            elif random_gate=='py':
+                qc.py(random.randint(0,n-1))
+            elif random_gate=='pz':
+                qc.pz(random.randint(0,n-1))
+            elif random_gate=='h':
+                qc.h(random.randint(0,n-1))
+            elif random_gate=='m':
+                qc.measure(random.randint(0,n-1))
+            elif random_gate=='rx':
+                qc.rx(random.randint(0,n-1),random.random()*cmath.pi)
+            elif random_gate=='ry':
+                qc.ry(random.randint(0,n-1),random.random()*cmath.pi)
+            elif random_gate=='rz':
+                qc.rz(random.randint(0,n-1),random.random()*cmath.pi)
+            
+        elif random_size==1:
+            random_gate=random.choice(['cnot','swap']) 
+            a=random.randint(0,n-1)
+            b=random.randint(0,n-1)
+            while b==a:
+                b=random.randint(0,n-1)
+            if random_gate=='cnot':
+                qc.cnot(a,b)
+            else:
+                qc.swap(a,b)
+        else:
+            random_gate=random.choice(['ccnot','cswap'])
+            a=random.randint(0,n-1)
+            b=random.randint(0,n-1)
+            c=random.randint(0,n-1)
+            while b==a or c==a or c==b:
+                b=random.randint(0,n-1)
+                c=random.randint(0,n-1)
+            if random_gate=='ccnot':
+                qc.ccnot(a,b,c)
+            else:
+                qc.cswap(a,b,c)
+        
+    return qc
 
 qc = QuantumCircuit(4)
 qc.px(1)
