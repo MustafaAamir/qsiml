@@ -2,6 +2,9 @@
 
 # quantipy
 
+Wins:
+![image](https://github.com/user-attachments/assets/00eb0e2f-7bd8-4a9e-a251-0897b8d79407)
+
 <a id="quantipy.QuantumCircuit"></a>
 
 ## QuantumCircuit Objects
