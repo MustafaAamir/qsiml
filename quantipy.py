@@ -44,6 +44,8 @@ class QuantumCircuit:
             n (int, optional): The number of qubits to initialize (1 by default)
         """
         self.qubits: List[List[complex]] = [INITIAL_STATE for _ in range(n)]
+        self.thetas: List[float] =[]
+        self.Len=0
         self.qubits_count: int = n
         self.circuit: List[Tuple[str, List[int]]] = []
 
@@ -57,6 +59,13 @@ class QuantumCircuit:
         self.draw()
         return ""
         # PaulliGates
+
+    def theta_que(self,theta):
+        if len(str(theta))>8:
+            theta=float(str(theta)[:8])
+        self.Len+=len(str(theta))
+        self.thetas.append(theta)
+
 
     def px(self, i: int):
         """
@@ -127,6 +136,7 @@ class QuantumCircuit:
             + self.qubits[i][0] * cmath.sin(theta / 2) * -1j,
         ]
         self.circuit.append(("Rx", [i]))
+        self.theta_que(theta)
 
     def ry(self, i: int, theta: float):
         """
@@ -148,6 +158,7 @@ class QuantumCircuit:
             + self.qubits[i][0] * cmath.sin(theta / 2),
         ]
         self.circuit.append(("Ry", [i]))
+        self.theta_que(theta)
 
     def rz(self, i: int, theta: float):
         """
@@ -166,6 +177,7 @@ class QuantumCircuit:
             self.qubits[i][1] * cmath.exp(1j * (theta / 2)),
         ]
         self.circuit.append(("Rz", [i]))
+        self.theta_que(theta)
 
     def phase(self, i: int, theta: float):
         """
@@ -189,6 +201,7 @@ class QuantumCircuit:
         elif (theta % (cmath.pi / 2)) == 0:
             self.qubits[i][1] = (self.qubits[i][1].imag) * 1j
         self.circuit.append(("P", [i]))
+        self.theta_que(theta)
 
     def swap(self, i: int, j: int):
         """
@@ -534,6 +547,7 @@ class QuantumCircuit:
                 qubit_plural += "s"
             target_str = ", ".join(map(str, targets))
             print(f"{i + 1}. {gate} on {qubit_plural} {target_str}")
+
     def _katas(self, header = ""):
         print(header)
         length = self.qubits_count
@@ -635,4 +649,5 @@ qc.ry(0, 0.861107914305094)
 qc.rz(1, 0.5157573130213783)
 qc.cswap(7, 8, 2)
 
-print(qc.draw())
+print(qc.thetas)
+print(qc.Len)
