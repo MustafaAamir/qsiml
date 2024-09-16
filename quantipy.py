@@ -321,8 +321,8 @@ class QuantumCircuit:
         """
 
         _check_index(i, self.qubits_count)
-        pzero = self.qubits[i][0].real ** 2
-        pone = self.qubits[i][1].real ** 2
+        pzero = abs(self.qubits[i][0]) ** 2
+        pone = abs(self.qubits[i][1]) ** 2
         tp = pzero + pone
         # division by zero errors somehow
         if tp != 0:
@@ -388,43 +388,45 @@ class QuantumCircuit:
 
         normalize = 0
         for amp in state_vector:
-            normalize += (amp.real) ** 2
+            normalize += abs(amp) ** 2
         normalize = cmath.sqrt(normalize)
         normalized_state_vector = []
-        if normalize != 0:
+
+        # if only imaginary amplitudes, prints an empty table
+        # BUG: FIXED
+        if normalize.real > 1:
             for amp in state_vector:
                 normalized_state_vector.append(amp / normalize)
-
-        basis_states, amplitudes, probabilties, phases = (
-            ["Basis states"],
-            ["Amplitudes"],
-            ["Probabilties"],
-            ["Phases"],
-        )
+        else:
+            for amp in state_vector:
+                normalized_state_vector.append(amp)
+        table = [
+            ["Basis state", "Probabilty", "Phase", "Amplitude"],
+        ]
         # correct until here
         for i, amp in enumerate(normalized_state_vector):
-            prob = amp.real**2
+            prob = abs(amp)**2
+            row = []
             if prob < 1e-8:
                 continue
-            probabilties.append("{:.2f}%".format(prob * 100))
             basis_state = "|" + bin(i)[2:] + "⟩"
-            basis_states.append(basis_state)
+            row.append(basis_state)
+            row.append("{:.2f}%".format(prob * 100))
             phase = cmath.phase(amp)
-            if abs(phase) % cmath.pi == 0:
+            if phase % cmath.pi == 0:
                 coefficient = phase // cmath.pi
                 phase = str(int(coefficient)) + "π"
-                phases.append(phase)
+                row.append(phase)
             else:
-                phases.append("{:.4}".format(phase))
+                row.append("{:.4}".format(phase))
             sign = "+"
             if amp.imag < 0:
                 sign = "-"
-            amplitudes.append(
-                "{:.4} ".format(amp.real) + sign + " {:.4}i".format(amp.imag)
+            row.append(
+                "{:.4} ".format(amp.real) + sign + " {:.4}i".format(abs(amp.imag))
             )
-
-        table = [basis_states, amplitudes, probabilties, phases]
-        print(tabulate.tabulate(table, tablefmt="heavy_grid", headers="firstrow"))
+            table.append(row)
+        print(tabulate.tabulate(table[1:], headers=table[0], tablefmt="heavy_grid", stralign="centre"))
 
     def reset(self, i):
         """
@@ -531,6 +533,20 @@ class QuantumCircuit:
                 qubit_plural += "s"
             target_str = ", ".join(map(str, targets))
             print(f"{i + 1}. {gate} on {qubit_plural} {target_str}")
+    def _katas(self, header = ""):
+        print(header)
+        length = self.qubits_count
+        output_str = ""
+        output_str += f"\t\tuse qs = Qubit[{length}];\n"
+        for (gate, targets) in self.circuit:
+            args = ""
+            for arg in targets:
+                args += f"qs[{arg}], "
+            args = args[:-2]
+            output_str += f"\t\t{gate}({args});\n"
+        print(output_str)
+
+
 
 
 # gen random quantum circuits
@@ -547,6 +563,7 @@ def gen_rand(n, d):
         if random_size == 0:
             RANDOM_IDX = random.randint(0, n - 1)
             RANDOM_ANGLE = random.random() * cmath.pi
+            # removing rxyz gates for testing
             random_gate = random.choice(["px", "py", "pz", "rx", "ry", "rz", "h", "m"])
             if random_gate == "px":
                 qc.px(RANDOM_IDX)
@@ -560,10 +577,13 @@ def gen_rand(n, d):
                 qc.measure(RANDOM_IDX)
             elif random_gate == "rx":
                 qc.rx(RANDOM_IDX, RANDOM_ANGLE)
+                print(f"applied angle: {RANDOM_ANGLE} to rx")
             elif random_gate == "ry":
                 qc.ry(RANDOM_IDX, RANDOM_ANGLE)
+                print(f"applied angle: {RANDOM_ANGLE} to ry")
             elif random_gate == "rz":
                 qc.rz(RANDOM_IDX, RANDOM_ANGLE)
+                print(f"applied angle: {RANDOM_ANGLE} to rz")
 
         elif random_size == 1:
             random_gate = random.choice(["cnot", "swap"])
@@ -576,6 +596,7 @@ def gen_rand(n, d):
             else:
                 qc.swap(a, b)
         else:
+            #removing cswap for testing
             random_gate = random.choice(["ccnot", "cswap"])
             a = random.randint(0, n - 1)
             b = random.randint(0, n - 1)
@@ -591,7 +612,7 @@ def gen_rand(n, d):
     return qc
 
 
-qc = gen_rand(5, 10)
-print(qc)
+qc = gen_rand(10, 20)
 qc.operations()
 qc.dump()
+qc._katas()
