@@ -382,6 +382,7 @@ class QuantumCircuit:
         for qubit in self.qubits:
             nstate_vector = []
             for amp in state_vector:
+                #TODO: switched 1 and 0
                 nstate_vector.append(amp * qubit[0])
                 nstate_vector.append(amp * qubit[1])
             state_vector = nstate_vector
@@ -612,7 +613,26 @@ def gen_rand(n, d):
     return qc
 
 
-qc = gen_rand(10, 20)
-qc.operations()
-qc.dump()
-qc._katas()
+qc = QuantumCircuit(10)
+qc.swap(2, 7)
+qc.rx(5, 0.029894449283742693)
+qc.ccnot(8, 6, 0)
+qc.cnot(3, 5)
+qc.cnot(8, 3)
+qc.ccnot(8, 7, 6)
+qc.cswap(0, 1, 6)
+qc.swap(0, 6)
+qc.ry(8, 2.961675126617143)
+qc.cnot(0, 1)
+qc.rx(4, 1.5976798923553746)
+qc.cswap(1, 5, 2)
+qc.ry(0, 0.8473061135504489)
+qc.cswap(3, 9, 0)
+qc.ccnot(2, 3, 6)
+qc.swap(4, 0)
+qc.swap(0, 9)
+qc.ry(0, 0.861107914305094)
+qc.rz(1, 0.5157573130213783)
+qc.cswap(7, 8, 2)
+
+print(qc.draw())
