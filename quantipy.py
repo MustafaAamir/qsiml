@@ -61,8 +61,8 @@ class QuantumCircuit:
         # PaulliGates
 
     def theta_que(self,theta):
-        if len(str(theta))>8:
-            theta=float(str(theta)[:8])
+        if len(str(theta))>6:
+            theta=float(str(theta)[:6])
         self.Len+=len(str(theta))
         self.thetas.append(theta)
 
@@ -464,6 +464,7 @@ class QuantumCircuit:
             header (str, optional): An optional header to print above the circuit representation. Defaults to "".
         """
         circuit = self.circuit
+
         gate_symbols = {
             "H": "H",
             "X": "X",
@@ -476,21 +477,29 @@ class QuantumCircuit:
             "Rx": "Rx",
             "Ry": "Rʏ",
             "Rz": "Rᴢ",
+            "P": "-P",
             "CCNOT": "⨁",
             # Add more gate symbols as needed
         }
-
+      
         num_qubits = self.qubits_count
         num_gates = len(circuit)
         if header != "":
             print(header)
         for qubit in range(num_qubits):
-            entangle = [" " for _ in range(3 * num_gates + 4)]
+            theta_gates=-1
+            theta_len=0
+            entangle = [" " for _ in range(3 * num_gates + 4+self.Len+2*len(self.thetas))]
             line_str = ""
             line_str += f"|q{qubit}⟩"
             for gate_index in range(num_gates):
                 gate, targets = circuit[gate_index]
                 TARGET = targets[-1]
+                if gate in ("Rx", "Ry", "Rz","P"):
+                    theta_gates+=1
+                    theta_len += len(str(self.thetas[theta_gates]))
+          
+                    
                 if qubit in targets:
                     if len(targets) > 1:
                         if gate == "SWAP":
@@ -508,28 +517,31 @@ class QuantumCircuit:
                             (qubit < TARGET and qubit >= targets[0])
                             or (qubit >= TARGET and qubit < targets[0])
                         ):
-                            entangle[3 * gate_index + 5] = "│"
+                            entangle[3 * gate_index + 5+8*(theta_gates+1)] = "│"
 
                         if (len(targets) == 3) and (
                             (qubit < TARGET and qubit >= targets[1])
                             or (qubit >= TARGET and qubit < targets[1])
                         ):
-                            entangle[3 * gate_index + 5] = "│"
+                            entangle[3 * gate_index + 5+8*(theta_gates+1)] = "│"
 
                     else:
-                        if gate in ("Rx", "Ry", "Rz"):
-                            line_str += f"—{gate_symbols[gate]}"
+                        if gate in ("Rx", "Ry", "Rz","P"):
+                            line_str += f"—{gate_symbols[gate]}({self.thetas[theta_gates]})"
                             # rxyz take a variable argument theta. Pxyz always rotate by π
-                            entangle[3 * gate_index + 5] = "θ"
+
                         else:
                             line_str += f"—{gate_symbols[gate]}—"
 
                 else:
-                    if (qubit < max(targets) and qubit > min(targets)):
-                        line_str += "—│—"
-                        entangle[3 * gate_index + 5] = "│"
+                    if gate in ("Rx", "Ry", "Rz","P"):
+                        line_str+="—"*11
                     else:
-                        line_str += "———"
+                        if (qubit < max(targets) and qubit > min(targets)):
+                            line_str += "—│—"
+                            entangle[3 * gate_index + 5+8*(theta_gates+1)] = "│"
+                        else:
+                            line_str += "—"*3
             print(line_str)
             print(''.join(entangle))
 
@@ -629,7 +641,7 @@ def gen_rand(n, d):
 
 qc = QuantumCircuit(10)
 qc.swap(2, 7)
-qc.rx(5, 0.029894449283742693)
+qc.phase(5, 0.029894449283742693)
 qc.ccnot(8, 6, 0)
 qc.cnot(3, 5)
 qc.cnot(8, 3)
@@ -648,6 +660,5 @@ qc.swap(0, 9)
 qc.ry(0, 0.861107914305094)
 qc.rz(1, 0.5157573130213783)
 qc.cswap(7, 8, 2)
-
-print(qc.thetas)
-print(qc.Len)
+print(len(qc.thetas))
+print(qc)
