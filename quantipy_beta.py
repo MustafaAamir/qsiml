@@ -26,8 +26,45 @@ def _check_distinct(args: List[int]):
 class Qubit:
     def __init__(self):
         self.states: List[complex] = INITIAL_STATE
-        self.entanglements: List[int] = []
+        self.dependent=False
+        self.entanglements: List[List[int]] = []
         self.gates: List[str] = []
+        self.measurements: List[int] = []
+        self.measured=False
+    
+    def measure(self):
+        if self.measured:
+            return self.measurements[len(self.measurements)-1]
+        else:
+            self.measured=True
+            if not self.dependent:
+                pzero, _ = self.states[0]
+                random_float = random.random()
+                if random_float < pzero:
+                    ret = 0
+                    self.states = ZERO_STATE
+                else:
+                    ret = 1
+                    self.states = ONE_STATE
+                self.measurements.append(ret)
+                return ret
+            else:
+                cache={}
+                for i in range(len(self.entanglements)):
+                    for j in self.entanglements[i]:
+                        if j not in cache:
+                            cache[j]=self.measure(j)
+                    self.states=self.apply_gates(self.gates[i],self.entanglements[i])
+    def apply_gates(self,gate,control):
+        if gate=='cnot':
+            if control[0]==1:
+                pass
+            #code comes here we need to figure this out
+
+
+
+        
+    
 
 
 class QuantumCircuit:
