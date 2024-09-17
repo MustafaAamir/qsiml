@@ -23,6 +23,12 @@ def _check_distinct(args: List[int]):
     if len(args) != len(set(args)):
         raise ValueError("Arguments to need to be distinct")
 
+class Qubit:
+    def __init__(self):
+        self.states: List[complex] = INITIAL_STATE
+        self.entanglements: List[int] = []
+        self.gates: List[str] = []
+
 
 class QuantumCircuit:
     """
@@ -43,7 +49,7 @@ class QuantumCircuit:
         Args:
             n (int, optional): The number of qubits to initialize (1 by default)
         """
-        self.qubits: List[List[complex]] = [INITIAL_STATE for _ in range(n)]
+        self.qubits: List[Qubit] = [Qubit() for _ in range(n)]
         self.thetas: List[float] =[]
         self.Len=0
         self.qubits_count: int = n
@@ -59,6 +65,8 @@ class QuantumCircuit:
         self.draw()
         return ""
         # PaulliGates
+    def add_entanglement(self, target, control_bits):
+        self.qubits[target].entanglements.extend(control_bits)
 
     def theta_que(self,theta):
         if len(str(theta))>6:
@@ -79,7 +87,7 @@ class QuantumCircuit:
             IndexError if i < 0 or i > self.qubits_count
         """
         _check_index(i, self.qubits_count)
-        self.qubits[i] = [self.qubits[i][1], self.qubits[i][0]]
+        self.qubits[i].states = [self.qubits[i].states[1], self.qubits[i].states[0]]
         self.circuit.append(("X", [i]))
 
     def py(self, i: int):
@@ -95,7 +103,7 @@ class QuantumCircuit:
 
         """
         _check_index(i, self.qubits_count)
-        self.qubits[i] = [self.qubits[i][1] * -1j, self.qubits[i][0] * 1j]
+        self.qubits[i].states = [self.qubits[i].states[1] * -1j, self.qubits[i].states[0] * 1j]
         self.circuit.append(("Y", [i]))
 
     def pz(self, i: int):
@@ -111,7 +119,7 @@ class QuantumCircuit:
         """
 
         _check_index(i, self.qubits_count)
-        self.qubits[i] = [self.qubits[i][0], self.qubits[i][1] * -1]
+        self.qubits[i].states = [self.qubits[i].states[0], self.qubits[i].states[1] * -1]
         self.circuit.append(("Z", [i]))
 
     # Rotation Gates
@@ -129,11 +137,11 @@ class QuantumCircuit:
         """
 
         _check_index(i, self.qubits_count)
-        self.qubits[i] = [
-            self.qubits[i][0] * cmath.cos(theta / 2)
-            + self.qubits[i][1] * cmath.sin(theta / 2) * -1j,
-            self.qubits[i][1] * cmath.cos(theta / 2)
-            + self.qubits[i][0] * cmath.sin(theta / 2) * -1j,
+        self.qubits[i].states = [
+            self.qubits[i].states[0] * cmath.cos(theta / 2)
+            + self.qubits[i].states[1] * cmath.sin(theta / 2) * -1j,
+            self.qubits[i].states[1] * cmath.cos(theta / 2)
+            + self.qubits[i].states[0] * cmath.sin(theta / 2) * -1j,
         ]
         self.circuit.append(("Rx", [i]))
         self.theta_que(theta)
@@ -151,11 +159,11 @@ class QuantumCircuit:
         """
 
         _check_index(i, self.qubits_count)
-        self.qubits[i] = [
-            self.qubits[i][0] * cmath.cos(theta / 2)
-            + self.qubits[i][1] * cmath.sin(theta / 2) * -1,
-            self.qubits[i][1] * cmath.cos(theta / 2)
-            + self.qubits[i][0] * cmath.sin(theta / 2),
+        self.qubits[i].states = [
+            self.qubits[i].states[0] * cmath.cos(theta / 2)
+            + self.qubits[i].states[1] * cmath.sin(theta / 2) * -1,
+            self.qubits[i].states[1] * cmath.cos(theta / 2)
+            + self.qubits[i].states[0] * cmath.sin(theta / 2),
         ]
         self.circuit.append(("Ry", [i]))
         self.theta_que(theta)
@@ -172,9 +180,9 @@ class QuantumCircuit:
             IndexError if i < 0 or i > self.qubits_count
         """
         _check_index(i, self.qubits_count)
-        self.qubits[i] = [
-            self.qubits[i][0] * cmath.exp(-1j * (theta / 2)),
-            self.qubits[i][1] * cmath.exp(1j * (theta / 2)),
+        self.qubits[i].states = [
+            self.qubits[i].states[0] * cmath.exp(-1j * (theta / 2)),
+            self.qubits[i].states[1] * cmath.exp(1j * (theta / 2)),
         ]
         self.circuit.append(("Rz", [i]))
         self.theta_que(theta)
@@ -192,14 +200,14 @@ class QuantumCircuit:
             IndexError if i < 0 or i > self.qubits_count
         """
         _check_index(i, self.qubits_count)
-        self.qubits[i] = [
-            self.qubits[i][0],
-            complex(self.qubits[i][1] * (cmath.exp(1j * theta))),
+        self.qubits[i].states = [
+            self.qubits[i].states[0],
+            complex(self.qubits[i].states[1] * (cmath.exp(1j * theta))),
         ]
         if theta % cmath.pi == 0:
-            self.qubits[i][1] = self.qubits[i][1].real
+            self.qubits[i].states[1] = self.qubits[i].states[1].real
         elif (theta % (cmath.pi / 2)) == 0:
-            self.qubits[i][1] = (self.qubits[i][1].imag) * 1j
+            self.qubits[i].states[1] = (self.qubits[i].states[1].imag) * 1j
         self.circuit.append(("P", [i]))
         self.theta_que(theta)
 
@@ -220,9 +228,9 @@ class QuantumCircuit:
         _check_index(i, self.qubits_count)
         _check_index(j, self.qubits_count)
         _check_distinct([i, j])
-        temp = self.qubits[i]
-        self.qubits[i] = self.qubits[j]
-        self.qubits[j] = temp
+        temp = self.qubits[i].states
+        self.qubits[i].states = self.qubits[j].states
+        self.qubits[j].states = temp
         self.circuit.append(("SWAP", [i, j]))
 
     def cnot(self, i: int, j: int):
@@ -243,9 +251,10 @@ class QuantumCircuit:
         _check_distinct([i, j])
         _check_index(i, self.qubits_count)
         _check_index(j, self.qubits_count)
-        if self.qubits[i] == ONE_STATE:
-            self.qubits[j] = [self.qubits[j][1], self.qubits[j][0]]
+        if self.qubits[i].states == ONE_STATE:
+            self.qubits[j].states = [self.qubits[j].states[1], self.qubits[j].states[0]]
         self.circuit.append(("CNOT", [i, j]))
+        self.add_entanglement(i, [j])
 
     def h(self, i: int):
         """
@@ -258,9 +267,9 @@ class QuantumCircuit:
             IndexError if i < 0 or i > self.qubits_count
         """
         _check_index(i, self.qubits_count)
-        self.qubits[i] = [
-            (1 / (2**0.5)) * (self.qubits[i][1] + self.qubits[i][0]),
-            (1 / (2**0.5)) * ((-1 * self.qubits[i][1]) + self.qubits[i][0]),
+        self.qubits[i].states = [
+            (1 / (2**0.5)) * (self.qubits[i].states[1] + self.qubits[i].states[0]),
+            (1 / (2**0.5)) * ((-1 * self.qubits[i].states[1]) + self.qubits[i].states[0]),
         ]
         self.circuit.append(("H", [i]))
 
@@ -286,12 +295,13 @@ class QuantumCircuit:
         _check_index(i, self.qubits_count)
         _check_index(j, self.qubits_count)
         _check_index(k, self.qubits_count)
-        if self.qubits[i] == ONE_STATE:
-            temp = self.qubits[j]
-            self.qubits[j] = self.qubits[k]
-            self.qubits[k] = temp
+        if self.qubits[i].states == ONE_STATE:
+            temp = self.qubits[j].states
+            self.qubits[j].states = self.qubits[k].states
+            self.qubits[k].states = temp
 
         self.circuit.append(("CSWAP", [i, j, k]))
+        self.add_entanglement(i, [j, k])
 
     def ccnot(self, i: int, j: int, k: int):
         """
@@ -315,9 +325,10 @@ class QuantumCircuit:
         _check_index(j, self.qubits_count)
         _check_index(k, self.qubits_count)
         _check_distinct([i, j, k])
-        if self.qubits[i] == ONE_STATE and self.qubits[j] == ONE_STATE:
-            self.qubits[k] = [self.qubits[k][1], self.qubits[k][0]]
+        if self.qubits[i].states == ONE_STATE and self.qubits[j].states == ONE_STATE:
+            self.qubits[k].states = [self.qubits[k].states[1], self.qubits[k].states[0]]
         self.circuit.append(("CCNOT", [i, j, k]))
+        self.add_entanglement(i, [j, k])
 
     def probability(self, i: int) -> Tuple[float, float]:
         """
@@ -334,8 +345,8 @@ class QuantumCircuit:
         """
 
         _check_index(i, self.qubits_count)
-        pzero = abs(self.qubits[i][0]) ** 2
-        pone = abs(self.qubits[i][1]) ** 2
+        pzero = abs(self.qubits[i].states[0]) ** 2
+        pone = abs(self.qubits[i].states[1]) ** 2
         tp = pzero + pone
         # division by zero errors somehow
         if tp != 0:
@@ -362,10 +373,10 @@ class QuantumCircuit:
         random_float = random.random()
         if random_float < pzero:
             ret = 0
-            self.qubits[i] = ZERO_STATE
+            self.qubits[i].states = ZERO_STATE
         else:
             ret = 1
-            self.qubits[i] = ONE_STATE
+            self.qubits[i].states = ONE_STATE
         self.circuit.append(("M", [i]))
         return ret
 
@@ -382,22 +393,16 @@ class QuantumCircuit:
         measured_values.append(self.measure(i) for i in range(self.qubits_count))
         return measured_values
 
-    def dump(self, msg: str = ""):
-        """
-        Print the current state of the quantum circuit without affecting it.
-        Displays the probability amplitudes for each basis state along with their probabilities and phases.
+    #making chagnes
 
-        Args:
-            msg (str, optional): An optional message to print before the state dump. Defaults to "".
-        """
-        print(msg)
+    def get_nsv(self, msg: str = ""):
         state_vector = [1]
         for qubit in self.qubits:
             nstate_vector = []
             for amp in state_vector:
-                #TODO: switched 1 and 0
-                nstate_vector.append(amp * qubit[0])
-                nstate_vector.append(amp * qubit[1])
+                # add some kind of permutation
+                nstate_vector.append(amp * qubit.states[0])
+                nstate_vector.append(amp * qubit.states[1])
             state_vector = nstate_vector
 
         normalize = 0
@@ -408,22 +413,35 @@ class QuantumCircuit:
 
         # if only imaginary amplitudes, prints an empty table
         # BUG: FIXED
-        if normalize.real > 1:
+        if normalize.real > 0:
             for amp in state_vector:
                 normalized_state_vector.append(amp / normalize)
         else:
             for amp in state_vector:
                 normalized_state_vector.append(amp)
+
+        return normalized_state_vector
+    def dump(self, msg: str = ""):
+        """
+        Print the current state of the quantum circuit without affecting it.
+        Displays the probability amplitudes for each basis state along with their probabilities and phases.
+
+        Args:
+            msg (str, optional): An optional message to print before the state dump. Defaults to "".
+        """
+        print(msg)
+        normalized_state_vector = self.get_nsv()
         table = [
             ["Basis state", "Probabilty", "Phase", "Amplitude"],
         ]
-        # correct until here
+        # iterate over
         for i, amp in enumerate(normalized_state_vector):
             prob = abs(amp)**2
             row = []
             if prob < 1e-8:
                 continue
-            basis_state = "|" + bin(i)[2:] + "⟩"
+
+            basis_state = "|" + format(i, f"{self.qubits_count}b") + "⟩"
             row.append(basis_state)
             row.append("{:.2f}%".format(prob * 100))
             phase = cmath.phase(amp)
@@ -454,7 +472,7 @@ class QuantumCircuit:
         """
 
         _check_index(i, self.qubits_count)
-        self.qubits[i] = INITIAL_STATE
+        self.qubits[i].states = INITIAL_STATE
 
     def draw(self, header: str = ""):
         """
@@ -561,6 +579,7 @@ class QuantumCircuit:
             print(f"{i + 1}. {gate} on {qubit_plural} {target_str}")
 
     def _katas(self, header = ""):
+        print(self.thetas)
         print(header)
         length = self.qubits_count
         output_str = ""
@@ -638,27 +657,45 @@ def gen_rand(n, d):
 
     return qc
 
+"""
+Expected:
+    state 110, amp 0-0.8776
+    state 111, amp
+┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃   Basis state ┃   Probabilty ┃   Phase ┃      Amplitude ┃
+┣━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━━━━━━━━┫
+┃ |11⟩          ┃ 77.02%       ┃  -1.571 ┃ -0.0 - 0.8776i ┃
+┣━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━╋━━━━━━━━━╋━━━━━━━━━━━━━━━━┫
+┃ |111⟩         ┃ 22.98%       ┃  -1.571 ┃ -0.0 - 0.4794i ┃
+┗━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━┻━━━━━━━━━┻━━━━━━━━━━━━━━━━┛
 
-qc = QuantumCircuit(10)
-qc.swap(2, 7)
-qc.phase(5, 0.029894449283742693)
-qc.ccnot(8, 6, 0)
-qc.cnot(3, 5)
-qc.cnot(8, 3)
-qc.ccnot(8, 7, 6)
-qc.cswap(0, 1, 6)
-qc.swap(0, 6)
-qc.ry(8, 2.961675126617143)
-qc.cnot(0, 1)
-qc.rx(4, 1.5976798923553746)
-qc.cswap(1, 5, 2)
-qc.ry(0, 0.8473061135504489)
-qc.cswap(3, 9, 0)
-qc.ccnot(2, 3, 6)
+"""
+"""
+qc.ry(8, 2.9616)
+qc.rx(4, 1.5976)
+qc.ry(0, 0.08473)
 qc.swap(4, 0)
 qc.swap(0, 9)
-qc.ry(0, 0.861107914305094)
-qc.rz(1, 0.5157573130213783)
-qc.cswap(7, 8, 2)
-print(len(qc.thetas))
-print(qc)
+qc.ry(0, 0.8611)
+qc.rz(1, 0.5157)
+"""
+
+"""
+qc = QuantumCircuit(10)
+qc.px(0)
+qc.py(1)
+qc.pz(2)
+qc.rx(3, 2.5)
+qc.ry(4, 2.5)
+qc.rz(5, 2.5)
+qc.px(6)
+qc.py(7)
+qc.pz(8)
+"""
+qc = gen_rand(10, 20)
+qc.draw()
+qc._katas()
+qc.dump()
+
+
+
