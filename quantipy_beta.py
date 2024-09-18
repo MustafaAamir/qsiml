@@ -62,28 +62,30 @@ class Qubit:
                         if j not in cache:
 
                             cache[j]=self.entanglements[i][j].measure()
-                        entangled_measurements.append(cache[j])
+                        entangled_measurements.append([cache[j],self.entanglements[i][j]])
          
                     self.measurement=self.apply_gates(self.gates[i],entangled_measurements)
                     return self.measurement
                 
     def apply_gates(self,gate,control):
+        if control[0]==None:
+            return self.probability()
         if gate=='cnot':
-            if control[0]==1:
+            if control[0][0]==1:
                 self.states=[self.states[1],self.states[0]]
             return self.probability()
         if gate=='swap':
      
-            self.states=control[0].states
+            self.states=control[0][1].states
           
             return self.probability()
         if gate=='cswap':
-            if control[0]==1:
-                self.states=control[1].states
+            if control[0][0]==1:
+                self.states=control[1][1].states
           
             return self.probability()
         if gate=='ccnot':
-            if control[0]==1 and control[1]==1:
+            if control[0][0]==1 and control[1][0]==1:
                 self.states=[self.states[1],self.states[0]]
             return self.probability()
             
@@ -775,9 +777,25 @@ qc.pz(8)
 #expected output:
 #00 or 11
 
-qc=QuantumCircuit(2)
-qc.h(0)
-qc.cnot(0,1)
+qc=QuantumCircuit(20)
+qc.rz(7,cmath.pi)
+qc.cnot(0,3)
+qc.h(5)
+qc.ccnot(17,1,3)
+qc.pz(3)
+qc.swap(1,5)
+qc.ccnot(14,3,6)
+
+qc.ccnot(18,17,6)
+qc.swap(5,7)
+qc.ccnot(3,16,12)
+qc.ccnot(4,2,16)
+
+qc.ccnot(4,18,0)
+qc.h(18)
+qc.swap(8,9)
+qc.cnot(19,12)
+qc.pz(14)
 print(qc.measure_all())
 
 
