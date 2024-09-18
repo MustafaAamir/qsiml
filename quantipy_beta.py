@@ -29,36 +29,60 @@ class Qubit:
         self.dependent=False
         self.entanglements: List[List[int]] = []
         self.gates: List[str] = []
-        self.measurements: List[int] = []
+        self.measurement=None
         self.measured=False
+
+    def probability(self):
+        pzero= abs(self.states[0])**2
+        random_float = random.random()
+        if random_float < pzero:
+            ret = 0
+            self.states = ZERO_STATE
+        else:
+            ret = 1
+            self.states = ONE_STATE
+        return ret
     
     def measure(self):
         if self.measured:
-            return self.measurements[len(self.measurements)-1]
+            return self.measurements
         else:
             self.measured=True
             if not self.dependent:
-                pzero, _ = self.states[0]
-                random_float = random.random()
-                if random_float < pzero:
-                    ret = 0
-                    self.states = ZERO_STATE
-                else:
-                    ret = 1
-                    self.states = ONE_STATE
-                self.measurements.append(ret)
-                return ret
+              
+                return self.probability()
             else:
                 cache={}
                 for i in range(len(self.entanglements)):
+                    entangled_measurements=[]
                     for j in self.entanglements[i]:
                         if j not in cache:
                             cache[j]=self.measure(j)
-                    self.states=self.apply_gates(self.gates[i],self.entanglements[i])
+                        entangled_measurements.append(cache[j])
+                    self.measurement=self.apply_gates(self.gates[i],entangled_measurements[i])
+                    return self.measurement
+                
     def apply_gates(self,gate,control):
         if gate=='cnot':
             if control[0]==1:
-                pass
+                self.states=[self.states[1],self.states[0]]
+            return self.probability()
+        if gate=='swap':
+     
+            self.states=control[0].states
+          
+            return self.probability()
+        if gate=='cswap':
+            if control[0]==1:
+                self.states=control[1].states
+          
+            return self.probability()
+        if gate=='ccnot':
+            if control[0]==1 and control[1]==1:
+                self.states=[self.states[1],self.states[0]]
+            return self.probability()
+            
+
             #code comes here we need to figure this out
 
 
@@ -102,8 +126,10 @@ class QuantumCircuit:
         self.draw()
         return ""
         # PaulliGates
-    def add_entanglement(self, target, control_bits):
-        self.qubits[target].entanglements.extend(control_bits)
+
+    def add_entanglement(self, target, control_bits,gate):
+        self.qubits[target].entanglements.append(control_bits)
+        self.qubits[target].gates.append(gate)
 
     def theta_que(self,theta):
         if len(str(theta))>6:
@@ -269,6 +295,8 @@ class QuantumCircuit:
         self.qubits[i].states = self.qubits[j].states
         self.qubits[j].states = temp
         self.circuit.append(("SWAP", [i, j]))
+        self.add_entanglement(j,[i],'swap')
+        self.add_entanglement(i,[j],'swap')
 
     def cnot(self, i: int, j: int):
         """
@@ -291,7 +319,7 @@ class QuantumCircuit:
         if self.qubits[i].states == ONE_STATE:
             self.qubits[j].states = [self.qubits[j].states[1], self.qubits[j].states[0]]
         self.circuit.append(("CNOT", [i, j]))
-        self.add_entanglement(i, [j])
+        self.add_entanglement(j,[i],'cnot')
 
     def h(self, i: int):
         """
@@ -338,7 +366,8 @@ class QuantumCircuit:
             self.qubits[k].states = temp
 
         self.circuit.append(("CSWAP", [i, j, k]))
-        self.add_entanglement(i, [j, k])
+        self.add_entanglement(k,[i,j],'cswap')
+        self.add_entanglement(j,[i,k],'cswap')
 
     def ccnot(self, i: int, j: int, k: int):
         """
@@ -365,7 +394,7 @@ class QuantumCircuit:
         if self.qubits[i].states == ONE_STATE and self.qubits[j].states == ONE_STATE:
             self.qubits[k].states = [self.qubits[k].states[1], self.qubits[k].states[0]]
         self.circuit.append(("CCNOT", [i, j, k]))
-        self.add_entanglement(i, [j, k])
+        self.add_entanglement(k, [i, j],'ccnot')
 
     def probability(self, i: int) -> Tuple[float, float]:
         """
@@ -427,7 +456,7 @@ class QuantumCircuit:
         """
 
         measured_values = []
-        measured_values.append(self.measure(i) for i in range(self.qubits_count))
+        measured_values.append(self.qubits[i].measure() for i in range(self.qubits_count))
         return measured_values
 
     #making chagnes
@@ -729,10 +758,18 @@ qc.px(6)
 qc.py(7)
 qc.pz(8)
 """
-qc = gen_rand(10, 20)
-qc.draw()
-qc._katas()
-qc.dump()
 
+
+#qc=QuantumCircuit(2)
+#qc.h(0)
+#qc.cx(0, 1)
+#qc.measure_all()
+#expected output:
+#00 or 11
+
+qc=QuantumCircuit(2)
+qc.h(0)
+qc.cnot(0,1)
+qc._katas
 
 
