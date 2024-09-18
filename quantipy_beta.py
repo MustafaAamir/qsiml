@@ -23,18 +23,19 @@ def _check_distinct(args: List[int]):
     if len(args) != len(set(args)):
         raise ValueError("Arguments to need to be distinct")
 
+
 class Qubit:
     def __init__(self):
         self.states: List[complex] = INITIAL_STATE
-        self.dependent=False
+        self.dependent = False
         self.entanglements: List[List[Qubit]] = []
         self.gates: List[str] = []
-        self.measurement=None
-        self.swap=False
-        self.measured=False
+        self.measurement = None
+        self.swap = False
+        self.measured = False
 
     def probability(self):
-        pzero= abs(self.states[0])**2
+        pzero = abs(self.states[0]) ** 2
         random_float = random.random()
         if random_float < pzero:
             ret = 0
@@ -43,61 +44,58 @@ class Qubit:
             ret = 1
             self.states = ONE_STATE
         return ret
-    
+
     def measure(self):
         if self.measured:
             return self.measurement
         else:
-            self.measured=True
+            self.measured = True
             if not self.dependent:
-                ret=self.probability()
-                self.measurement=ret
+                ret = self.probability()
+                self.measurement = ret
                 return ret
             else:
-                cache={}
+                cache = {}
                 for i in range(len(self.entanglements)):
-                    entangled_measurements=[]
-                    
+                    entangled_measurements = []
+
                     for j in range(len(self.entanglements[i])):
-                       
                         if j not in cache:
+                            cache[j] = self.entanglements[i][j].measure()
+                        entangled_measurements.append([
+                            cache[j],
+                            self.entanglements[i][j],
+                        ])
 
-                            cache[j]=self.entanglements[i][j].measure()
-                        entangled_measurements.append([cache[j],self.entanglements[i][j]])
-         
-                    self.measurement=self.apply_gates(self.gates[i],entangled_measurements)
+                    self.measurement = self.apply_gates(
+                        self.gates[i], entangled_measurements
+                    )
                     return self.measurement
-                
-    def apply_gates(self,gate,control):
-        if control[0]==None:
+
+    def apply_gates(self, gate, control):
+        if control[0] is None:
             return self.probability()
-        if gate=='cnot':
-            if control[0][0]==1:
-                self.states=[self.states[1],self.states[0]]
+        if gate == "cnot":
+            if control[0][0] == 1:
+                self.states = [self.states[1], self.states[0]]
             return self.probability()
-    
-        if gate=='cswap':
-            if control[0][0]==1:
+
+        if gate == "cswap":
+            if control[0][0] == 1:
                 if self.swap:
-                    self.states=control[1][1].prev
-                else:    
-                    self.prev=self.states
-                    self.states=control[1][1].states
-                    control[1][1].states=self.prev
-          
+                    self.states = control[1][1].prev
+                else:
+                    self.prev = self.states
+                    self.states = control[1][1].states
+                    control[1][1].states = self.prev
+
             return self.probability()
-        if gate=='ccnot':
-            if control[0][0]==1 and control[1][0]==1:
-                self.states=[self.states[1],self.states[0]]
+        if gate == "ccnot":
+            if control[0][0] == 1 and control[1][0] == 1:
+                self.states = [self.states[1], self.states[0]]
             return self.probability()
-            
 
-            #code comes here we need to figure this out
-
-
-
-        
-    
+            # code comes here we need to figure this out
 
 
 class QuantumCircuit:
@@ -120,8 +118,8 @@ class QuantumCircuit:
             n (int, optional): The number of qubits to initialize (1 by default)
         """
         self.qubits: List[Qubit] = [Qubit() for _ in range(n)]
-        self.thetas: List[float] =[]
-        self.Len=0
+        self.thetas: List[float] = []
+        self.Len = 0
         self.qubits_count: int = n
         self.circuit: List[Tuple[str, List[int]]] = []
 
@@ -136,18 +134,17 @@ class QuantumCircuit:
         return ""
         # PaulliGates
 
-    def add_entanglement(self, target, control_bits,gate,swap=False):
+    def add_entanglement(self, target, control_bits, gate, swap=False):
         self.qubits[target].entanglements.append(control_bits)
         self.qubits[target].gates.append(gate)
-        self.qubits[target].dependent=True
-        self.qubits[target].swap=swap
+        self.qubits[target].dependent = True
+        self.qubits[target].swap = swap
 
-    def theta_que(self,theta):
-        if len(str(theta))>6:
-            theta=float(str(theta)[:6])
-        self.Len+=len(str(theta))
+    def theta_que(self, theta):
+        if len(str(theta)) > 6:
+            theta = float(str(theta)[:6])
+        self.Len += len(str(theta))
         self.thetas.append(theta)
-
 
     def px(self, i: int):
         """
@@ -177,7 +174,10 @@ class QuantumCircuit:
 
         """
         _check_index(i, self.qubits_count)
-        self.qubits[i].states = [self.qubits[i].states[1] * -1j, self.qubits[i].states[0] * 1j]
+        self.qubits[i].states = [
+            self.qubits[i].states[1] * -1j,
+            self.qubits[i].states[0] * 1j,
+        ]
         self.circuit.append(("Y", [i]))
 
     def pz(self, i: int):
@@ -193,7 +193,10 @@ class QuantumCircuit:
         """
 
         _check_index(i, self.qubits_count)
-        self.qubits[i].states = [self.qubits[i].states[0], self.qubits[i].states[1] * -1]
+        self.qubits[i].states = [
+            self.qubits[i].states[0],
+            self.qubits[i].states[1] * -1,
+        ]
         self.circuit.append(("Z", [i]))
 
     # Rotation Gates
@@ -306,7 +309,6 @@ class QuantumCircuit:
         self.qubits[i].states = self.qubits[j].states
         self.qubits[j].states = temp
         self.circuit.append(("SWAP", [i, j]))
-     
 
     def cnot(self, i: int, j: int):
         """
@@ -329,7 +331,7 @@ class QuantumCircuit:
         if self.qubits[i].states == ONE_STATE:
             self.qubits[j].states = [self.qubits[j].states[1], self.qubits[j].states[0]]
         self.circuit.append(("CNOT", [i, j]))
-        self.add_entanglement(j,[self.qubits[i]],'cnot')
+        self.add_entanglement(j, [self.qubits[i]], "cnot")
 
     def h(self, i: int):
         """
@@ -344,7 +346,8 @@ class QuantumCircuit:
         _check_index(i, self.qubits_count)
         self.qubits[i].states = [
             (1 / (2**0.5)) * (self.qubits[i].states[1] + self.qubits[i].states[0]),
-            (1 / (2**0.5)) * ((-1 * self.qubits[i].states[1]) + self.qubits[i].states[0]),
+            (1 / (2**0.5))
+            * ((-1 * self.qubits[i].states[1]) + self.qubits[i].states[0]),
         ]
         self.circuit.append(("H", [i]))
 
@@ -376,10 +379,9 @@ class QuantumCircuit:
             self.qubits[k].states = temp
 
         self.circuit.append(("CSWAP", [i, j, k]))
-        self.add_entanglement(k,[self.qubits[i],self.qubits[j]],'cswap')
-  
-        self.add_entanglement(j,[self.qubits[i],self.qubits[k]],'cswap',True)
+        self.add_entanglement(k, [self.qubits[i], self.qubits[j]], "cswap")
 
+        self.add_entanglement(j, [self.qubits[i], self.qubits[k]], "cswap", True)
 
     def ccnot(self, i: int, j: int, k: int):
         """
@@ -406,7 +408,7 @@ class QuantumCircuit:
         if self.qubits[i].states == ONE_STATE and self.qubits[j].states == ONE_STATE:
             self.qubits[k].states = [self.qubits[k].states[1], self.qubits[k].states[0]]
         self.circuit.append(("CCNOT", [i, j, k]))
-        self.add_entanglement(k, [self.qubits[i],self.qubits[j]],'ccnot')
+        self.add_entanglement(k, [self.qubits[i], self.qubits[j]], "ccnot")
 
     def probability(self, i: int) -> Tuple[float, float]:
         """
@@ -471,9 +473,9 @@ class QuantumCircuit:
         for i in range(self.qubits_count):
             measured_values.append(self.qubits[i].measure())
 
-        return (measured_values)
+        return measured_values
 
-    #making chagnes
+    # making chagnes
 
     def get_nsv(self, msg: str = ""):
         state_vector = [1]
@@ -501,6 +503,7 @@ class QuantumCircuit:
                 normalized_state_vector.append(amp)
 
         return normalized_state_vector
+
     def dump(self, msg: str = ""):
         """
         Print the current state of the quantum circuit without affecting it.
@@ -516,7 +519,7 @@ class QuantumCircuit:
         ]
         # iterate over
         for i, amp in enumerate(normalized_state_vector):
-            prob = abs(amp)**2
+            prob = abs(amp) ** 2
             row = []
             if prob < 1e-8:
                 continue
@@ -538,7 +541,11 @@ class QuantumCircuit:
                 "{:.4} ".format(amp.real) + sign + " {:.4}i".format(abs(amp.imag))
             )
             table.append(row)
-        print(tabulate.tabulate(table[1:], headers=table[0], tablefmt="heavy_grid", stralign="centre"))
+        print(
+            tabulate.tabulate(
+                table[1:], headers=table[0], tablefmt="heavy_grid", stralign="centre"
+            )
+        )
 
     def reset(self, i):
         """
@@ -585,18 +592,19 @@ class QuantumCircuit:
         if header != "":
             print(header)
         for qubit in range(num_qubits):
-            theta_gates=-1
-            theta_len=0
-            entangle = [" " for _ in range(3 * num_gates + 4+self.Len+2*len(self.thetas))]
+            theta_gates = -1
+            theta_len = 0
+            entangle = [
+                " " for _ in range(3 * num_gates + 4 + self.Len + 2 * len(self.thetas))
+            ]
             line_str = ""
             line_str += f"|q{qubit}⟩"
             for gate_index in range(num_gates):
                 gate, targets = circuit[gate_index]
                 TARGET = targets[-1]
-                if gate in ("Rx", "Ry", "Rz","P"):
-                    theta_gates+=1
+                if gate in ("Rx", "Ry", "Rz", "P"):
+                    theta_gates += 1
                     theta_len += len(str(self.thetas[theta_gates]))
-
 
                 if qubit in targets:
                     if len(targets) > 1:
@@ -611,37 +619,38 @@ class QuantumCircuit:
                         else:
                             line_str += "—●—"
 
-                        if (
-                            (qubit < TARGET and qubit >= targets[0])
-                            or (qubit >= TARGET and qubit < targets[0])
+                        if (qubit < TARGET and qubit >= targets[0]) or (
+                            qubit >= TARGET and qubit < targets[0]
                         ):
-                            entangle[3 * gate_index + 5+8*(theta_gates+1)] = "│"
+                            entangle[3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
 
                         if (len(targets) == 3) and (
                             (qubit < TARGET and qubit >= targets[1])
                             or (qubit >= TARGET and qubit < targets[1])
                         ):
-                            entangle[3 * gate_index + 5+8*(theta_gates+1)] = "│"
+                            entangle[3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
 
                     else:
-                        if gate in ("Rx", "Ry", "Rz","P"):
-                            line_str += f"—{gate_symbols[gate]}({self.thetas[theta_gates]})"
+                        if gate in ("Rx", "Ry", "Rz", "P"):
+                            line_str += (
+                                f"—{gate_symbols[gate]}({self.thetas[theta_gates]})"
+                            )
                             # rxyz take a variable argument theta. Pxyz always rotate by π
 
                         else:
                             line_str += f"—{gate_symbols[gate]}—"
 
                 else:
-                    if gate in ("Rx", "Ry", "Rz","P"):
-                        line_str+="—"*11
+                    if gate in ("Rx", "Ry", "Rz", "P"):
+                        line_str += "—" * 11
                     else:
-                        if (qubit < max(targets) and qubit > min(targets)):
+                        if qubit < max(targets) and qubit > min(targets):
                             line_str += "—│—"
-                            entangle[3 * gate_index + 5+8*(theta_gates+1)] = "│"
+                            entangle[3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
                         else:
-                            line_str += "—"*3
+                            line_str += "—" * 3
             print(line_str)
-            print(''.join(entangle))
+            print("".join(entangle))
 
     def operations(self, header: str = ""):
         """
@@ -658,21 +667,19 @@ class QuantumCircuit:
             target_str = ", ".join(map(str, targets))
             print(f"{i + 1}. {gate} on {qubit_plural} {target_str}")
 
-    def _katas(self, header = ""):
+    def _katas(self, header=""):
         print(self.thetas)
         print(header)
         length = self.qubits_count
         output_str = ""
         output_str += f"\t\tuse qs = Qubit[{length}];\n"
-        for (gate, targets) in self.circuit:
+        for gate, targets in self.circuit:
             args = ""
             for arg in targets:
                 args += f"qs[{arg}], "
             args = args[:-2]
             output_str += f"\t\t{gate}({args});\n"
         print(output_str)
-
-
 
 
 # gen random quantum circuits
@@ -722,7 +729,7 @@ def gen_rand(n, d):
             else:
                 qc.swap(a, b)
         else:
-            #removing cswap for testing
+            # removing cswap for testing
             random_gate = random.choice(["ccnot", "cswap"])
             a = random.randint(0, n - 1)
             b = random.randint(0, n - 1)
@@ -736,6 +743,7 @@ def gen_rand(n, d):
                 qc.cswap(a, b, c)
 
     return qc
+
 
 """
 Expected:
@@ -774,18 +782,16 @@ qc.pz(8)
 """
 
 
-#qc=QuantumCircuit(2)
-#qc.h(0)
-#qc.cx(0, 1)
-#qc.measure_all()
-#expected output:
-#00 or 11
+# qc=QuantumCircuit(2)
+# qc.h(0)
+# qc.cx(0, 1)
+# qc.measure_all()
+# expected output:
+# 00 or 11
 
-qc=QuantumCircuit(3)
+qc = QuantumCircuit(3)
 qc.h(0)
 qc.px(1)
-qc.cswap(0,1,2)
+qc.cswap(0, 1, 2)
 print(qc)
 print(qc.measure_all())
-
-
