@@ -30,6 +30,7 @@ class Qubit:
         self.entanglements: List[List[Qubit]] = []
         self.gates: List[str] = []
         self.measurement=None
+        self.swap=False
         self.measured=False
 
     def probability(self):
@@ -74,14 +75,15 @@ class Qubit:
             if control[0][0]==1:
                 self.states=[self.states[1],self.states[0]]
             return self.probability()
-        if gate=='swap':
-     
-            self.states=control[0][1].states
-          
-            return self.probability()
+    
         if gate=='cswap':
             if control[0][0]==1:
-                self.states=control[1][1].states
+                if self.swap:
+                    self.states=control[1][1].prev
+                else:    
+                    self.prev=self.states
+                    self.states=control[1][1].states
+                    control[1][1].states=self.prev
           
             return self.probability()
         if gate=='ccnot':
@@ -134,10 +136,11 @@ class QuantumCircuit:
         return ""
         # PaulliGates
 
-    def add_entanglement(self, target, control_bits,gate):
+    def add_entanglement(self, target, control_bits,gate,swap=False):
         self.qubits[target].entanglements.append(control_bits)
         self.qubits[target].gates.append(gate)
         self.qubits[target].dependent=True
+        self.qubits[target].swap=swap
 
     def theta_que(self,theta):
         if len(str(theta))>6:
@@ -303,8 +306,7 @@ class QuantumCircuit:
         self.qubits[i].states = self.qubits[j].states
         self.qubits[j].states = temp
         self.circuit.append(("SWAP", [i, j]))
-        self.add_entanglement(j,[self.qubits[i]],'swap')
-        self.add_entanglement(i,[self.qubits[j]],'swap')
+     
 
     def cnot(self, i: int, j: int):
         """
@@ -375,7 +377,9 @@ class QuantumCircuit:
 
         self.circuit.append(("CSWAP", [i, j, k]))
         self.add_entanglement(k,[self.qubits[i],self.qubits[j]],'cswap')
-        self.add_entanglement(j,[self.qubits[i],self.qubits[k]],'cswap')
+  
+        self.add_entanglement(j,[self.qubits[i],self.qubits[k]],'cswap',True)
+
 
     def ccnot(self, i: int, j: int, k: int):
         """
@@ -777,25 +781,11 @@ qc.pz(8)
 #expected output:
 #00 or 11
 
-qc=QuantumCircuit(20)
-qc.rz(7,cmath.pi)
-qc.cnot(0,3)
-qc.h(5)
-qc.ccnot(17,1,3)
-qc.pz(3)
-qc.swap(1,5)
-qc.ccnot(14,3,6)
-
-qc.ccnot(18,17,6)
-qc.swap(5,7)
-qc.ccnot(3,16,12)
-qc.ccnot(4,2,16)
-
-qc.ccnot(4,18,0)
-qc.h(18)
-qc.swap(8,9)
-qc.cnot(19,12)
-qc.pz(14)
+qc=QuantumCircuit(3)
+qc.h(0)
+qc.px(1)
+qc.cswap(0,1,2)
+print(qc)
 print(qc.measure_all())
 
 
