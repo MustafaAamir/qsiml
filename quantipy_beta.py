@@ -27,7 +27,7 @@ class Qubit:
     def __init__(self):
         self.states: List[complex] = INITIAL_STATE
         self.dependent=False
-        self.entanglements: List[List[int]] = []
+        self.entanglements: List[List[Qubit]] = []
         self.gates: List[str] = []
         self.measurement=None
         self.measured=False
@@ -45,21 +45,26 @@ class Qubit:
     
     def measure(self):
         if self.measured:
-            return self.measurements
+            return self.measurement
         else:
             self.measured=True
             if not self.dependent:
-              
-                return self.probability()
+                ret=self.probability()
+                self.measurement=ret
+                return ret
             else:
                 cache={}
                 for i in range(len(self.entanglements)):
                     entangled_measurements=[]
-                    for j in self.entanglements[i]:
+                    
+                    for j in range(len(self.entanglements[i])):
+                       
                         if j not in cache:
-                            cache[j]=self.measure(j)
+
+                            cache[j]=self.entanglements[i][j].measure()
                         entangled_measurements.append(cache[j])
-                    self.measurement=self.apply_gates(self.gates[i],entangled_measurements[i])
+         
+                    self.measurement=self.apply_gates(self.gates[i],entangled_measurements)
                     return self.measurement
                 
     def apply_gates(self,gate,control):
@@ -130,6 +135,7 @@ class QuantumCircuit:
     def add_entanglement(self, target, control_bits,gate):
         self.qubits[target].entanglements.append(control_bits)
         self.qubits[target].gates.append(gate)
+        self.qubits[target].dependent=True
 
     def theta_que(self,theta):
         if len(str(theta))>6:
@@ -295,8 +301,8 @@ class QuantumCircuit:
         self.qubits[i].states = self.qubits[j].states
         self.qubits[j].states = temp
         self.circuit.append(("SWAP", [i, j]))
-        self.add_entanglement(j,[i],'swap')
-        self.add_entanglement(i,[j],'swap')
+        self.add_entanglement(j,[self.qubits[i]],'swap')
+        self.add_entanglement(i,[self.qubits[j]],'swap')
 
     def cnot(self, i: int, j: int):
         """
@@ -319,7 +325,7 @@ class QuantumCircuit:
         if self.qubits[i].states == ONE_STATE:
             self.qubits[j].states = [self.qubits[j].states[1], self.qubits[j].states[0]]
         self.circuit.append(("CNOT", [i, j]))
-        self.add_entanglement(j,[i],'cnot')
+        self.add_entanglement(j,[self.qubits[i]],'cnot')
 
     def h(self, i: int):
         """
@@ -366,8 +372,8 @@ class QuantumCircuit:
             self.qubits[k].states = temp
 
         self.circuit.append(("CSWAP", [i, j, k]))
-        self.add_entanglement(k,[i,j],'cswap')
-        self.add_entanglement(j,[i,k],'cswap')
+        self.add_entanglement(k,[self.qubits[i],self.qubits[j]],'cswap')
+        self.add_entanglement(j,[self.qubits[i],self.qubits[k]],'cswap')
 
     def ccnot(self, i: int, j: int, k: int):
         """
@@ -394,7 +400,7 @@ class QuantumCircuit:
         if self.qubits[i].states == ONE_STATE and self.qubits[j].states == ONE_STATE:
             self.qubits[k].states = [self.qubits[k].states[1], self.qubits[k].states[0]]
         self.circuit.append(("CCNOT", [i, j, k]))
-        self.add_entanglement(k, [i, j],'ccnot')
+        self.add_entanglement(k, [self.qubits[i],self.qubits[j]],'ccnot')
 
     def probability(self, i: int) -> Tuple[float, float]:
         """
@@ -456,8 +462,10 @@ class QuantumCircuit:
         """
 
         measured_values = []
-        measured_values.append(self.qubits[i].measure() for i in range(self.qubits_count))
-        return measured_values
+        for i in range(self.qubits_count):
+            measured_values.append(self.qubits[i].measure())
+
+        return (measured_values)
 
     #making chagnes
 
@@ -770,6 +778,6 @@ qc.pz(8)
 qc=QuantumCircuit(2)
 qc.h(0)
 qc.cnot(0,1)
-qc._katas
+print(qc.measure_all())
 
 
