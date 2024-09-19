@@ -64,17 +64,19 @@ class TestMeasureAll(unittest.TestCase):
             qc.qubits[0].states = INITIAL_STATE
             qc.qubits[1].states = INITIAL_STATE
             qc.qubits[2].states = INITIAL_STATE
+
+
         for _ in range(10):
+            qc = QuantumCircuit(3)
+
             qc.h(0)
             qc.px(1)
             qc.cswap(0, 1, 2)
             qc.cswap(0, 1, 2)
             qc.cswap(0, 1, 2)
 
-            self.assertIn(qc.measure_all(), [[0, 1, 1], [1, 1, 1]])
-            qc.qubits[0].states = INITIAL_STATE
-            qc.qubits[1].states = INITIAL_STATE
-            qc.qubits[2].states = INITIAL_STATE
+            self.assertIn(qc.measure_all(), [[0, 1, 0], [1, 0, 1]])
+
 
 
 
