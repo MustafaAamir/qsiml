@@ -69,17 +69,14 @@ class Qubit:
                     return self.measurement
                 
     def apply_gates(self,gate,control):
-        if control[0]==None:
+        if control[0] is None:
             return self.probability()
+        
         if gate=='cnot':
             if control[0][0]==1:
                 self.states=[self.states[1],self.states[0]]
             return self.probability()
-    
-
-            
-            
-            return self.probability()
+        
         if gate=='ccnot':
             if control[0][0]==1 and control[1][0]==1:
                 self.states=[self.states[1],self.states[0]]
@@ -782,16 +779,11 @@ def Cswap(qc: QuantumCircuit, control: int, target1: int, target2: int):
       
     qc.circuit.append(("CSWAP", [control, target1, target2]))
 
-qc=QuantumCircuit(10)
+qc=QuantumCircuit(3)
 qc.h(0)
-qc.cnot(0, 1)
-qc.cswap(0,1,2)
-qc.cswap(2,5,7)
-
-print(qc.circuit)
-print(qc)
+qc.px(1)
+qc.cswap(0, 1, 2)
+qc.cswap(0, 1, 2)
+qc.cswap(0, 1, 2)
 print(qc.measure_all())
 
-
-print(qc)
-print(qc.measure_all())
