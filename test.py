@@ -1,5 +1,5 @@
 import unittest
-from quantipy import QuantumCircuit
+from quasi import QuantumCircuit
 import cmath
 
 HALF_SQRT = complex((1 / 2) ** 0.5)
@@ -21,51 +21,51 @@ class TestGates(unittest.TestCase):
     def test_hadamard(self):
         qc = QuantumCircuit(1)
         # storing states for later comparison
-        zeroeth = qc.qubits[0][0]
-        oneth = qc.qubits[0][1]
+        zeroeth = qc.qubits[0].states[0]
+        oneth = qc.qubits[0].states[1]
         qc.h(0)
-        self.assertAlmostEqual(HALF_SQRT, qc.qubits[0][0])
-        self.assertAlmostEqual(HALF_SQRT, qc.qubits[0][1])
+        self.assertAlmostEqual(HALF_SQRT, qc.qubits[0].states[0])
+        self.assertAlmostEqual(HALF_SQRT, qc.qubits[0].states[1])
         qc.h(0)
-        self.assertAlmostEqual(zeroeth, qc.qubits[0][0])
-        self.assertAlmostEqual(oneth, qc.qubits[0][1])
+        self.assertAlmostEqual(zeroeth, qc.qubits[0].states[0])
+        self.assertAlmostEqual(oneth, qc.qubits[0].states[1])
 
     def test_px(self):
         qc = QuantumCircuit(1)
 
         qc.px(0)
-        self.assertAlmostEqual(0, qc.qubits[0][0])
-        self.assertAlmostEqual(1, qc.qubits[0][1])
+        self.assertAlmostEqual(0, qc.qubits[0].states[0])
+        self.assertAlmostEqual(1, qc.qubits[0].states[1])
         qc.px(0)
-        self.assertAlmostEqual(1, qc.qubits[0][0])
-        self.assertAlmostEqual(0, qc.qubits[0][1])
+        self.assertAlmostEqual(1, qc.qubits[0].states[0])
+        self.assertAlmostEqual(0, qc.qubits[0].states[1])
 
     def test_py(self):
         qc = QuantumCircuit(2)
         qc.px(1)
         qc.py(0)
-        self.assertAlmostEqual(0, qc.qubits[0][0])
-        self.assertAlmostEqual(1j, qc.qubits[0][1])
+        self.assertAlmostEqual(0, qc.qubits[0].states[0])
+        self.assertAlmostEqual(1j, qc.qubits[0].states[1])
         qc.py(1)
-        self.assertAlmostEqual(-1j, qc.qubits[1][0])
-        self.assertAlmostEqual(0, qc.qubits[1][1])
+        self.assertAlmostEqual(-1j, qc.qubits[1].states[0])
+        self.assertAlmostEqual(0, qc.qubits[1].states[1])
 
     def test_pz(self):
         qc = QuantumCircuit(2)
         qc.px(1)
         qc.pz(0)
-        self.assertAlmostEqual(1, qc.qubits[0][0])
-        self.assertAlmostEqual(0, qc.qubits[0][1])
+        self.assertAlmostEqual(1, qc.qubits[0].states[0])
+        self.assertAlmostEqual(0, qc.qubits[0].states[1])
         qc.pz(1)
-        self.assertAlmostEqual(0, qc.qubits[1][0])
-        self.assertAlmostEqual(-1, qc.qubits[1][1])
+        self.assertAlmostEqual(0, qc.qubits[1].states[0])
+        self.assertAlmostEqual(-1, qc.qubits[1].states[1])
 
     def test_phase_no_px(self):
         qc = QuantumCircuit(5)
         pi_values = [0.0, cmath.pi / 2, cmath.pi, (1.5) * cmath.pi, 2 * cmath.pi]
         for i in range(5):
             qc.phase(i, pi_values[i])
-            self.assertAlmostEqual(qc.qubits[i][1], COMPLEX_ZERO)
+            self.assertAlmostEqual(qc.qubits[i].states[1], COMPLEX_ZERO)
 
     def test_phase_px(self):
         qc = QuantumCircuit(5)
@@ -84,14 +84,14 @@ class TestGates(unittest.TestCase):
         for i in range(5):
             qc.px(i)
             qc.phase(i, pi_values[i])
-            self.assertAlmostEqual(qc.qubits[i][1].real, euler_values[i].real)
+            self.assertAlmostEqual(qc.qubits[i].states[1].real, euler_values[i].real)
 
         qc = QuantumCircuit(360)
         for i in range(360, 0, -1):
             qc.px(i - 1)
             qc.phase(i - 1, (2 * (cmath.pi / i)))
             self.assertAlmostEqual(
-                qc.qubits[i - 1][1], cmath.exp(1j * (2 * (cmath.pi / i)))
+                qc.qubits[i - 1].states[1], cmath.exp(1j * (2 * (cmath.pi / i)))
             )
 
     def test_measure(self):
@@ -152,12 +152,12 @@ class TestGates(unittest.TestCase):
             theta = 2 * (cmath.pi / i)
             qc.qubits[0] = INITIAL_STATE
             qc.rx(0, theta)
-            self.assertAlmostEqual(qc.qubits[0][0], cmath.cos(theta / 2))
-            self.assertAlmostEqual(qc.qubits[0][1], -1j * cmath.sin(theta / 2))
+            self.assertAlmostEqual(qc.qubits[0].states[0], cmath.cos(theta / 2))
+            self.assertAlmostEqual(qc.qubits[0].states[1], -1j * cmath.sin(theta / 2))
             qc.qubits[0] = ONE_STATE
             qc.rx(0, theta)
-            self.assertAlmostEqual(qc.qubits[0][0], -1j * cmath.sin(theta / 2))
-            self.assertAlmostEqual(qc.qubits[0][1], cmath.cos(theta / 2))
+            self.assertAlmostEqual(qc.qubits[0].states[0], -1j * cmath.sin(theta / 2))
+            self.assertAlmostEqual(qc.qubits[0].states[1], cmath.cos(theta / 2))
 
     def test_ry(self):
         qc = QuantumCircuit(1)
@@ -165,12 +165,12 @@ class TestGates(unittest.TestCase):
             theta = 2 * (cmath.pi / i)
             qc.qubits[0] = INITIAL_STATE
             qc.ry(0, theta)
-            self.assertAlmostEqual(qc.qubits[0][0], cmath.cos(theta / 2))
-            self.assertAlmostEqual(qc.qubits[0][1], cmath.sin(theta / 2))
+            self.assertAlmostEqual(qc.qubits[0].states[0], cmath.cos(theta / 2))
+            self.assertAlmostEqual(qc.qubits[0].states[1], cmath.sin(theta / 2))
             qc.qubits[0] = ONE_STATE
             qc.ry(0, theta)
-            self.assertAlmostEqual(qc.qubits[0][0], -cmath.sin(theta / 2))
-            self.assertAlmostEqual(qc.qubits[0][1], cmath.cos(theta / 2))
+            self.assertAlmostEqual(qc.qubits[0].states[0], -cmath.sin(theta / 2))
+            self.assertAlmostEqual(qc.qubits[0].states[1], cmath.cos(theta / 2))
 
     def test_rz(self):
         qc = QuantumCircuit(1)
@@ -179,14 +179,14 @@ class TestGates(unittest.TestCase):
             qc.qubits[0] = INITIAL_STATE
             qc.rz(0, theta)
             self.assertAlmostEqual(
-                qc.qubits[0][0], cmath.cos(theta / 2) + cmath.sin(theta / 2) * -1j
+                qc.qubits[0].states[0], cmath.cos(theta / 2) + cmath.sin(theta / 2) * -1j
             )
-            self.assertAlmostEqual(qc.qubits[0][1], 0)
+            self.assertAlmostEqual(qc.qubits[0].states[1], 0)
             qc.qubits[0] = ONE_STATE
             qc.rz(0, theta)
-            self.assertAlmostEqual(qc.qubits[0][0], 0)
+            self.assertAlmostEqual(qc.qubits[0].states[0], 0)
             self.assertAlmostEqual(
-                qc.qubits[0][1], cmath.cos(theta / 2) + cmath.sin(theta / 2) * 1j
+                qc.qubits[0].states[1], cmath.cos(theta / 2) + cmath.sin(theta / 2) * 1j
             )
 
     """
@@ -199,24 +199,24 @@ class TestGates(unittest.TestCase):
         qc = QuantumCircuit(2)
         qc.rz(0, cmath.pi)
         qc.pz(1)
-        self.assertAlmostEqual(qc.qubits[0][0], -1j * qc.qubits[1][0])
-        self.assertAlmostEqual(qc.qubits[0][1], -1j * qc.qubits[1][1])
+        self.assertAlmostEqual(qc.qubits[0].states[0], -1j * qc.qubits[1].states[0])
+        self.assertAlmostEqual(qc.qubits[0].states[1], -1j * qc.qubits[1].states[1])
 
     def test_rx_equal_paulix(self):
         """rx(pi) should equal paulix"""
         qc = QuantumCircuit(2)
         qc.rx(0, cmath.pi)
         qc.px(1)
-        self.assertAlmostEqual(qc.qubits[0][0], -1j * qc.qubits[1][0])
-        self.assertAlmostEqual(qc.qubits[0][1], -1j * qc.qubits[1][1])
+        self.assertAlmostEqual(qc.qubits[0].states[0], -1j * qc.qubits[1].states[0])
+        self.assertAlmostEqual(qc.qubits[0].states[1], -1j * qc.qubits[1].states[1])
 
     def test_ry_equal_pauliy(self):
         """ry(pi) should equal -i * paulix"""
         qc = QuantumCircuit(2)
         qc.ry(0, cmath.pi)
         qc.py(1)
-        self.assertAlmostEqual(qc.qubits[0][0], -1j * qc.qubits[1][0])
-        self.assertAlmostEqual(qc.qubits[0][1], -1j * qc.qubits[1][1])
+        self.assertAlmostEqual(qc.qubits[0].states[0], -1j * qc.qubits[1].states[0])
+        self.assertAlmostEqual(qc.qubits[0].states[1], -1j * qc.qubits[1].states[1])
 
     def rz_phase_equal(self):
         qc = QuantumCircuit(2)
@@ -224,8 +224,8 @@ class TestGates(unittest.TestCase):
         qc.rz(0, theta)
         qc.phase(0, theta / 2)
         qc.phase(1, theta)
-        self.assertAlmostEqual(qc.qubits[0][0], qc.qubits[1][0])
-        self.assertAlmostEqual(qc.qubits[0][1], qc.qubits[1][1])
+        self.assertAlmostEqual(qc.qubits[0].states[0], qc.qubits[1].states[0])
+        self.assertAlmostEqual(qc.qubits[0].states[1], qc.qubits[1].states[1])
 
     """
     Testing other identities mentioned in:

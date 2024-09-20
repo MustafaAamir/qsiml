@@ -1,3 +1,4 @@
+from typing import Any
 from quantipy import QuantumCircuit
 import matplotlib.pyplot as plt
 from collections import Counter
