@@ -22,31 +22,11 @@ PZ = np.array([[1, 0], [0, -1]])
 
 NOT = np.array([[0, 1], [1, 0]])
 
-"""2 qubit gates"""
-SWAP = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
-
-"""3 qubit gates"""
-CCNOT = np.array([
-    [1, 0, 0, 0, 0, 0, 0, 0],
-    [0, 1, 0, 0, 0, 0, 0, 0],
-    [0, 0, 1, 0, 0, 0, 0, 0],
-    [0, 0, 0, 1, 0, 0, 0, 0],
-    [0, 0, 0, 0, 1, 0, 0, 0],
-    [0, 0, 0, 0, 0, 1, 0, 0],
-    [0, 0, 0, 0, 0, 0, 1, 0],
-    [0, 0, 0, 0, 0, 0, 0, 1],
-])
-
-
 def _check_index(i, qubits_count: int):
     if i < 0 or i > qubits_count - 1:
         raise IndexError(
             f"Qubit index '{i}' is out of range. Valid range is 0 to {qubits_count - 1}"
         )
-
-
-def _return_phase(theta: float):
-    return np.array([[1, 0], [0, np.exp(1j * theta)]])
 
 
 def _check_distinct(args: List[int]):
@@ -375,7 +355,6 @@ class QuantumCircuit:
         return self.state_vector
 
     def dump(self):
-        count = self.qubits_count
         self.state_vector[0] = 1  # Initialize to |0...0>
 
         for gate, qubits in self.circuit:
@@ -592,3 +571,6 @@ class QuantumCircuit:
             print("".join(entangle))
 
 
+qc = QuantumCircuit(2)
+qc.px(0)
+qc.dump()
