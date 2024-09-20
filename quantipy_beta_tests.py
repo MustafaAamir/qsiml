@@ -1,4 +1,4 @@
-from quantipy_beta import QuantumCircuit, Qubit
+from quasi import QuantumCircuit, Qubit
 import unittest
 from typing import List, Tuple
 import cmath
@@ -53,18 +53,16 @@ class TestMeasureAll(unittest.TestCase):
         self.assertIn(qc.measure_all(), [[0, 0], [0, 1], [1, 0], [1, 1]])
 
     def test_cswap(self):
-        qc = QuantumCircuit(3)
         for _ in range(10):
+            qc = QuantumCircuit(3)
             qc.h(0)
             qc.px(1)
             qc.cswap(0, 1, 2)
             qc.cswap(0, 1, 2)
+            measured = qc.measure_all()
+            print(measured)
 
-            self.assertIn(qc.measure_all(), [[0, 1, 0], [1, 1, 0]])
-            qc.qubits[0].states = INITIAL_STATE
-            qc.qubits[1].states = INITIAL_STATE
-            qc.qubits[2].states = INITIAL_STATE
-
+            self.assertIn(measured, [[0, 1, 0], [1, 1, 0]])
 
         for _ in range(10):
             qc = QuantumCircuit(3)
@@ -74,8 +72,10 @@ class TestMeasureAll(unittest.TestCase):
             qc.cswap(0, 1, 2)
             qc.cswap(0, 1, 2)
             qc.cswap(0, 1, 2)
+            measured = qc.measure_all()
+            print(measured)
 
-            self.assertIn(qc.measure_all(), [[0, 1, 0], [1, 0, 1]])
+            self.assertIn(measured, [[0, 1, 0], [1, 0, 1]])
 
 
 
