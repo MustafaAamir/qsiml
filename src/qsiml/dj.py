@@ -34,4 +34,17 @@ for i in range(n):
 qc.dump()
 qc.draw()
 
+qc = QuantumCircuit(10)
+
+for i in range(10):
+    qc.h(i)
+
+for i in range(9):
+    qc.cnot(i, 9)
+
+for i in range(10):
+    qc.measure(i)
+
+qc.draw()
+
 

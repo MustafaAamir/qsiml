@@ -702,19 +702,31 @@ class QuantumCircuit:
             self._eval_state_vector()
         num_qubits = self.qubits_count
         num_gates = len(circuit)
+        if num_qubits < 11:
+            padding = 1
+        elif num_qubits < 101:
+            padding = 2
+        elif num_qubits < 1001:
+            padding = 3
+        else:
+            padding = 4
+
         if header != "":
             print(header)
+
         for qubit in range(num_qubits):
             theta_gates = -1
             theta_len = 0
             entangle = [
                 " "
                 for _ in range(
-                    3 * num_gates + 4 + len(self.__thetas) + 2 * len(self.__thetas)
+                    3 * num_gates + 4 + len(self.__thetas) + 2 * len(self.__thetas) + 3
                 )
             ]
             line_str = ""
-            line_str += f"|q{qubit}⟩"
+            padding_str = f"{{:0{padding}d}}"
+            qubit_display = f"{padding_str}".format(qubit)
+            line_str += f"|q{qubit_display}⟩"
             for gate_index in range(num_gates):
                 gate, targets = circuit[gate_index]
                 TARGET = targets[-1]
@@ -738,13 +750,13 @@ class QuantumCircuit:
                         if (qubit < TARGET and qubit >= targets[0]) or (
                             qubit >= TARGET and qubit < targets[0]
                         ):
-                            entangle[3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
+                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
 
                         if (len(targets) == 3) and (
                             (qubit < TARGET and qubit >= targets[1])
                             or (qubit >= TARGET and qubit < targets[1])
                         ):
-                            entangle[3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
+                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
 
                     else:
                         if gate in ("Rx", "Ry", "Rz", "P"):
@@ -753,7 +765,7 @@ class QuantumCircuit:
                             )
                         else:
                             if gate in ("M"):
-                                entangle[3 * gate_index + 5 + 8 * (theta_gates + 1)]=str(self.__measures[self.__measures_in.index(qubit)])
+                                entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)]=str(self.__measures[self.__measures_in.index(qubit)])
                             line_str += f"—{GATE_SYMBOLS[gate]}—"
 
                 else:
@@ -762,7 +774,7 @@ class QuantumCircuit:
                     else:
                         if qubit < max(targets) and qubit > min(targets):
                             line_str += "—│—"
-                            entangle[3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
+                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
                         else:
                             line_str += "—" * 3
             print(line_str)
