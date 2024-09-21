@@ -768,17 +768,3 @@ class QuantumCircuit:
             print(line_str)
             print("".join(entangle))
 
-
-qc=QuantumCircuit(7)
-qc.h(0)
-qc.h(1)
-qc.h(2)
-qc.h(3)
-qc.h(4)
-qc.h(5)
-qc.h(6)
-qc.measure(4)
-qc.measure(5)
-qc.measure(6)
-qc.dump()
-qc.draw()
