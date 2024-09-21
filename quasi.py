@@ -22,6 +22,7 @@ PZ = np.array([[1, 0], [0, -1]])
 
 NOT = np.array([[0, 1], [1, 0]])
 
+
 def _check_index(i, qubits_count: int):
     if i < 0 or i > qubits_count - 1:
         raise IndexError(
@@ -346,17 +347,16 @@ class QuantumCircuit:
     def apply_swap(self, target1, target2):
         n = 2**self.qubits_count
         for i in range(n):
-            if (i & (1 << target1)) != (i & (1 << target2)):
-                j = i ^ (1 << target1) ^ (1 << target2)
-                self.state_vector[i], self.state_vector[j] = (
-                    self.state_vector[j],
-                    self.state_vector[i],
-                )
+            #if (i & (1 << target1)) != (i & (1 << target2)):
+            j = i ^ (1 << target1) ^ (1 << target2)
+            self.state_vector[i], self.state_vector[j] = (
+                self.state_vector[j],
+                self.state_vector[i],
+            )
         return self.state_vector
 
-    def dump(self):
+    def eval_state_vector(self):
         self.state_vector[0] = 1  # Initialize to |0...0>
-
         for gate, qubits in self.circuit:
             qubit = qubits[0]
             if gate == "H":
@@ -408,7 +408,11 @@ class QuantumCircuit:
                 control, target1, target2 = qubits
                 self.apply_cswap(control, target1, target2)
 
+
+    def dump(self):
+        self.eval_state_vector()
         probabilities = np.abs(self.state_vector) ** 2
+        print(probabilities)
         phases = np.angle(self.state_vector)
 
         table = [["Basis State", "Probability", "Amplitude", "Phase"]]
@@ -434,7 +438,7 @@ class QuantumCircuit:
             )
         )
 
-    def probability(self, i) -> Tuple[float, float]:
+    def measure_all(self):
         """
         Calculate the probability of measuring the i-th qubit in the |0⟩ and |1⟩ states.
 
@@ -447,34 +451,14 @@ class QuantumCircuit:
         Raises:
             IndexError if i < 0 or i > self.qubits_count
         """
-        _check_index(i, self.qubits_count)
-        pzero = abs(self.qubits[i].states[0]) ** 2
-        pone = abs(self.qubits[i].states[1]) ** 2
-        tp = pzero + pone
-        if tp != 0:
-            pzero = pzero / tp
-            pone = pone / tp
-        return pzero, pone
+        self.eval_state_vector()
+        prob = np.abs(self.state_vector)**2
+        prob /= np.sum(prob)
+        basis_state = np.random.choice(2**self.qubits_count, p=prob)
+        print(bin(basis_state)[2:])
 
-    def measure(self, i):
-        _check_index(i, self.qubits_count)
-        pzero, _ = self.probability(i)
-        random_float = random.random()
-        ret = 0
-        if pzero < random_float:
-            ret = 0
-            self.qubits[i].states = INITIAL_STATE
-        else:
-            ret = 1
-            self.qubits[i].states = ONE_STATE
-        return ret
+        #something to collapse state vector
 
-    def measure_all(self):
-        measured_values = []
-        for i in range(self.qubits_count):
-            measured_values.append(self.measure(i))
-
-        return measured_values
 
     def draw(self, header: str = ""):
         """
@@ -571,6 +555,19 @@ class QuantumCircuit:
             print("".join(entangle))
 
 
-qc = QuantumCircuit(2)
-qc.px(0)
+qc = QuantumCircuit(10)
+qc.h(0)
+qc.cnot(0, 1)
+qc.cnot(1, 2)
+qc.cnot(2, 3)
+qc.cnot(3, 4)
+qc.cnot(4, 5)
+qc.cnot(5, 6)
+qc.cnot(6, 7)
+qc.cnot(7, 8)
+qc.cnot(8, 9)
+"""can't use measure_all before dump, fucks up the statevector"""
+"""because i haven't collapsed it yet"""
+qc.measure_all()
 qc.dump()
+
