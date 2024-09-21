@@ -19,7 +19,7 @@ PY = np.array([[0, -1j], [1j, 0]])
 
 PZ = np.array([[1, 0], [0, -1]])
 
-NOT = np.array([[0, 1], [1, 0]])
+ID = np.array([[1, 0], [0, 1]])
 
 
 def _check_index(i, qubits_count: int):
@@ -57,7 +57,7 @@ class QuantumCircuit:
             i (int): The index of the qubit to apply the gate to.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
+            IndexError if the index 'i' is out of range
         """
         _check_index(i, self.qubits_count)
         self.circuit.append(("X", [i]))
@@ -71,8 +71,7 @@ class QuantumCircuit:
             i (int): The index of the qubit to apply the gate to.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
-
+            IndexError if the index 'i' is out of range
         """
         _check_index(i, self.qubits_count)
         self.circuit.append(("Y", [i]))
@@ -86,7 +85,7 @@ class QuantumCircuit:
             i (int): The index of the qubit to apply the gate to.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
+            IndexError if the index 'i' is out of range
         """
 
         _check_index(i, self.qubits_count)
@@ -103,7 +102,7 @@ class QuantumCircuit:
             theta (float): The angle of rotation in radians.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
+            IndexError if the index 'i' is out of range
         """
 
         _check_index(i, self.qubits_count)
@@ -119,7 +118,7 @@ class QuantumCircuit:
             theta (float): The angle of rotation in radians.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
+            IndexError if the index 'i' is out of range
         """
 
         _check_index(i, self.qubits_count)
@@ -135,7 +134,7 @@ class QuantumCircuit:
             theta (float): The angle of rotation in radians.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
+            IndexError if the index 'i' is out of range
         """
         _check_index(i, self.qubits_count)
         self.circuit.append(("Rz", [i, theta]))
@@ -151,7 +150,7 @@ class QuantumCircuit:
             theta (float): The phase angle in radians.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
+            IndexError if the index 'i' is out of range
         """
 
         _check_index(i, self.qubits_count)
@@ -167,10 +166,7 @@ class QuantumCircuit:
             j (int): The index of the second qubit.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
-            IndexError if j < 0 or j > self.qubits_count
-
-            ValueError if i and j aren't distinct
+            ValueError if the indices 'i', 'j' aren't distinct
         """
         _check_index(i, self.qubits_count)
         _check_index(j, self.qubits_count)
@@ -187,10 +183,7 @@ class QuantumCircuit:
             j (int): The index of the target qubit.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
-            IndexError if j < 0 or j > self.qubits_count
-
-            ValueError if i and j aren't distinct
+            ValueError if the indices 'i', 'j' aren't distinct
         """
         _check_distinct([i, j])
         _check_index(i, self.qubits_count)
@@ -205,10 +198,23 @@ class QuantumCircuit:
             i (int): The index of the qubit to apply the gate to.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
+            IndexError if the index 'i' is out of range
         """
         _check_index(i, self.qubits_count)
         self.circuit.append(("H", [i]))
+
+    def i(self, i: int):
+        """
+        Apply the Identity (I) gate to the i-th qubit.
+
+        Args:
+            i (int): The index of the qubit to apply the gate to.
+
+        Raises:
+            IndexError if the index 'i' is out of range
+        """
+        _check_index(i, self.qubits_count)
+        self.circuit.append(("I", [i]))
 
     def cswap(self, i: int, j: int, k: int):
         """
@@ -221,12 +227,8 @@ class QuantumCircuit:
             k (int): The index of the second target qubit.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
-            IndexError if j < 0 or j > self.qubits_count
-            IndexError if k < 0 or k> self.qubits_count
-
-
-            ValueError if i, j, and k aren't distinct
+            IndexError if the indices 'i', 'j', 'k' are out of range
+            ValueError if the indices 'i', 'j', 'k' aren't distinct
         """
         _check_distinct([i, j, k])
         _check_index(i, self.qubits_count)
@@ -246,11 +248,8 @@ class QuantumCircuit:
 
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
-            IndexError if j < 0 or j > self.qubits_count
-            IndexError if k < 0 or k > self.qubits_count
-
-            ValueError if i, j and k aren't distinct
+            IndexError if the indices 'i', 'j', 'k' are out of range
+            ValueError if the indices 'i', 'j', 'k' aren't distinct
         """
         _check_index(i, self.qubits_count)
         _check_index(j, self.qubits_count)
@@ -266,7 +265,7 @@ class QuantumCircuit:
             i (int): The index of the qubit to reset.
 
         Raises:
-            IndexError if i < 0 or i > self.qubits_count
+            IndexError if the index 'i' is out of range
         """
 
         _check_index(i, self.qubits_count)
@@ -336,24 +335,34 @@ class QuantumCircuit:
 
     def apply_cswap(self, control, target1, target2):
         n = 2**self.qubits_count
+        nsv = np.zeros(n, dtype=complex)
         for i in range(n):
-            if (i & (1 << control)) and ((i & (1 << target1)) != (i & (1 << target2))):
-                j = i ^ (1 << target1) ^ (1 << target2)
-                self.state_vector[i], self.state_vector[j] = (
-                    self.state_vector[j],
-                    self.state_vector[i],
-                )
+            if (i & (1 << control)):
+                idx1 = (i >> target1) & 1
+                idx2 = (i >> target2) & 1
+                if (idx1 != idx2):
+                    idx_new = i ^ (1 << target1) ^ (1 << target2)
+                else:
+                    idx_new = i
+            else:
+                idx_new = i
+            nsv[idx_new] = self.state_vector[i]
+
+        self.state_vector = nsv
 
     def apply_swap(self, target1, target2):
         n = 2**self.qubits_count
+        nsv = np.zeros(n, dtype=complex)
         for i in range(n):
-            #if (i & (1 << target1)) != (i & (1 << target2)):
-            j = i ^ (1 << target1) ^ (1 << target2)
-            self.state_vector[i], self.state_vector[j] = (
-                self.state_vector[j],
-                self.state_vector[i],
-            )
-        return self.state_vector
+            idx1 = (i >> target1) & 1
+            idx2 = (i >> target2) & 1
+            if idx1 != idx2:
+                idx_new = i ^ (1 << target1) ^ (1 << target2)
+            else:
+                idx_new = i
+            nsv[idx_new] = self.state_vector[i]
+
+        self.state_vector = nsv
 
     def eval_state_vector(self):
         if not self.evaluated:
@@ -368,6 +377,8 @@ class QuantumCircuit:
                     self.apply_sqg(PY, qubit)
                 elif gate == "Z":
                     self.apply_sqg(PZ, qubit)
+                elif gate == "I":
+                    self.apply_sqg(ID, qubit)
 
                 elif gate == "P":
                     theta = qubits[1]
@@ -442,16 +453,9 @@ class QuantumCircuit:
 
     def measure_all(self):
         """
-        Calculate the probability of measuring the i-th qubit in the |0⟩ and |1⟩ states.
-
-        Args:
-            i (int): The index of the qubit.
 
         Returns:
-            Tuple[float, float]: A tuple containing the probabilities (p_zero, p_one).
-
-        Raises:
-            IndexError if i < 0 or i > self.qubits_count
+            str: the basis state it collapses to
         """
         self.eval_state_vector()
         self.evaluated = True
@@ -476,6 +480,7 @@ class QuantumCircuit:
 
         gate_symbols = {
             "H": "H",
+            "I": "I",
             "X": "X",
             "Y": "Y",
             "M": "M",
@@ -561,19 +566,8 @@ class QuantumCircuit:
 
 
 qc = QuantumCircuit(10)
-qc.h(0)
-qc.cnot(0, 1)
-qc.cnot(1, 2)
-qc.cnot(2, 3)
-qc.cnot(3, 4)
-qc.cnot(4, 5)
-qc.cnot(5, 6)
-qc.cnot(6, 7)
-qc.cnot(7, 8)
-qc.cnot(8, 9)
-"""can't use measure_all before dump, fucks up the statevector"""
-"""because i haven't collapsed it yet"""
-
+qc.px(0)
+qc.px(1)
+qc.cswap(1, 0, 2)
 qc.dump()
 print("measured value: ", qc.measure_all())
-
