@@ -1,16 +1,13 @@
-import numpy as np
 from typing import List, Tuple
 from tabulate import tabulate
+import numpy as np
 
-HALF_SQRT = complex((1 / 2) ** 0.5)
 COMPLEX_ZERO = complex(0)
 COMPLEX_ONE = complex(1)
 INITIAL_STATE = [COMPLEX_ONE, COMPLEX_ZERO]
 ZERO_STATE = INITIAL_STATE
 ONE_STATE = [COMPLEX_ZERO, COMPLEX_ONE]
-ONE_SQRT2 = [complex(1 / np.sqrt(2)), complex(1 / np.sqrt(2))]
 
-"""1 uqbit gates"""
 H = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
 
 PX = np.array([[0, 1], [1, 0]])
@@ -44,18 +41,21 @@ class Qubit:
 
 class QuantumCircuit:
     """
-        Initializes a new QuantumCircuit object with the given number of qubits.
+    Initializes a new QuantumCircuit object with the given number of qubits, n.
 
-        Args:
-            n (int, optional): The number of qubits in the circuit. Defaults to 1.
+    Args:
+        n (int, optional): The number of qubits in the circuit. Defaults to 1.
     """
+
     def __init__(self, n: int = 1):
         self.qubits: List[Qubit] = [Qubit() for _ in range(n)]
         self.qubits_count: int = n
-        self.thetas: List[float] = []
+        self.__thetas: List[float] = []
+        # __measures contains measured values
+        self.__measures: List[int] = []
         self.circuit: List[Tuple[str, List[int | float]]] = []
         self.state_vector = np.zeros(2**self.qubits_count, dtype=complex)
-        self.evaluated = False
+        self.__evaluated: bool = False
 
     def px(self, i: int):
         """
@@ -116,7 +116,7 @@ class QuantumCircuit:
 
         _check_index(i, self.qubits_count)
         self.circuit.append(("Rx", [i, theta]))
-        self.thetas.append(theta)
+        self.__thetas.append(theta)
 
     def ry(self, i: int, theta: float):
         """
@@ -132,7 +132,7 @@ class QuantumCircuit:
 
         _check_index(i, self.qubits_count)
         self.circuit.append(("Ry", [i, theta]))
-        self.thetas.append(theta)
+        self.__thetas.append(theta)
 
     def rz(self, i: int, theta: float):
         """
@@ -147,7 +147,7 @@ class QuantumCircuit:
         """
         _check_index(i, self.qubits_count)
         self.circuit.append(("Rz", [i, theta]))
-        self.thetas.append(theta)
+        self.__thetas.append(theta)
 
     def phase(self, i: int, theta: float):
         """
@@ -164,7 +164,7 @@ class QuantumCircuit:
 
         _check_index(i, self.qubits_count)
         self.circuit.append(("P", [i, theta]))
-        self.thetas.append(theta)
+        self.__thetas.append(theta)
 
     def swap(self, i: int, j: int):
         """
@@ -280,6 +280,16 @@ class QuantumCircuit:
         _check_index(i, self.qubits_count)
         self.qubits[i].states = INITIAL_STATE
 
+    def reset_all(self):
+        """
+        Reset every qubit in the circuit to the |0⟩ state.
+        """
+        self.qubits: List[Qubit] = [Qubit() for _ in range(self.qubits_count)]
+        self.__thetas: List[float] = []
+        self.circuit: List[Tuple[str, List[int | float]]] = []
+        self.state_vector = np.zeros(2**self.qubits_count, dtype=complex)
+        self.__evaluated = False
+
     def operations(self, header: str = ""):
         """
         Prints the gates applied to each qubit(s) in order.
@@ -313,8 +323,10 @@ class QuantumCircuit:
             args = args[:-2]
             output_str += f"\t\t{gate}({args});\n"
         print(output_str)
+        print("\t\tDumpMachine();")
+        print("\t\tResetAll(qs);")
 
-    def apply_sqg(self, gate, qubit):
+    def __apply_sqg(self, gate, qubit):
         """
         Applies a single-qubit gate to a specified qubit in the quantum circuit.
 
@@ -334,7 +346,7 @@ class QuantumCircuit:
                     gate, [self.state_vector[idx1], self.state_vector[idx2]]
                 )
 
-    def apply_cnot(self, control, target):
+    def __apply_cnot(self, control, target):
         """
         Applies a controlled-NOT gate to the control and target qubits.
 
@@ -348,14 +360,14 @@ class QuantumCircuit:
         """
         n = 2**self.qubits_count
         for i in range(n):
-            if (i & (1 << control)) and not (i & (1 << target)):
+            if (i & (1 << control)) and not i & (1 << target):
                 j = i ^ (1 << target)
                 self.state_vector[i], self.state_vector[j] = (
                     self.state_vector[j],
                     self.state_vector[i],
                 )
 
-    def apply_ccnot(self, control1, control2, target):
+    def __apply_ccnot(self, control1, control2, target):
         """
         Applies a controlled-CNOT gate to the control and target qubits.
 
@@ -373,7 +385,7 @@ class QuantumCircuit:
             if (
                 (i & (1 << control1))
                 and (i & (1 << control2))
-                and not (i & (1 << target))
+                and not i & (1 << target)
             ):
                 j = i ^ (1 << target)
                 self.state_vector[i], self.state_vector[j] = (
@@ -381,7 +393,7 @@ class QuantumCircuit:
                     self.state_vector[i],
                 )
 
-    def apply_cswap(self, control, target1, target2):
+    def __apply_cswap(self, control, target1, target2):
         """
         Applies a controlled-SWAP gate to the two target qubits, controlled by the control qubit.
 
@@ -397,10 +409,10 @@ class QuantumCircuit:
         n = 2**self.qubits_count
         nsv = np.zeros(n, dtype=complex)
         for i in range(n):
-            if (i & (1 << control)):
+            if i & (1 << control):
                 idx1 = (i >> target1) & 1
                 idx2 = (i >> target2) & 1
-                if (idx1 != idx2):
+                if idx1 != idx2:
                     idx_new = i ^ (1 << target1) ^ (1 << target2)
                 else:
                     idx_new = i
@@ -410,7 +422,7 @@ class QuantumCircuit:
 
         self.state_vector = nsv
 
-    def apply_swap(self, target1, target2):
+    def __apply_swap(self, target1, target2):
         """
         Applies a SWAP gate to the two given qubits.
 
@@ -435,30 +447,54 @@ class QuantumCircuit:
 
         self.state_vector = nsv
 
-    def eval_state_vector(self):
+    def __apply_measure(self, qubit: int):
+        pone = 0
+        ret = 0
+        for i in range(2**self.qubits_count):
+            if (i & (1 << qubit)):
+                pone += np.abs(self.state_vector[i])**2
+        if np.random.random() < pone:
+            ret = 1
+
+        nsv = np.zeros(2**self.qubits_count, dtype=complex)
+        for i in range(2**self.qubits_count):
+            if (i & (1 << qubit)) == (ret << qubit):
+                nsv[i] = self.state_vector[i]
+
+        norm = np.linalg.norm(nsv)
+        if norm != 0:
+            nsv /= norm
+
+        self.state_vector = nsv
+
+        self.__measures.append(ret)
+
+    def _eval_state_vector(self):
         """
         Evaluates the state vector of the quantum circuit.
         """
 
-        if not self.evaluated:
+        if not self.__evaluated:
             self.state_vector[0] = 1  # Initialize to |0...0>
             for gate, qubits in self.circuit:
                 qubit = qubits[0]
                 if gate == "H":
-                    self.apply_sqg(H, qubit)
+                    self.__apply_sqg(H, qubit)
                 elif gate == "X":
-                    self.apply_sqg(PX, qubit)
+                    self.__apply_sqg(PX, qubit)
                 elif gate == "Y":
-                    self.apply_sqg(PY, qubit)
+                    self.__apply_sqg(PY, qubit)
                 elif gate == "Z":
-                    self.apply_sqg(PZ, qubit)
+                    self.__apply_sqg(PZ, qubit)
                 elif gate == "I":
-                    self.apply_sqg(ID, qubit)
+                    self.__apply_sqg(ID, qubit)
+                elif gate == "M":
+                    self.__apply_measure(qubit)
 
                 elif gate == "P":
                     theta = qubits[1]
                     PHASE = np.array([[1, 0], [0, np.exp(1j * theta)]])
-                    self.apply_sqg(PHASE, qubit)
+                    self.__apply_sqg(PHASE, qubit)
 
                 elif gate == "RX":
                     theta = qubits[1]
@@ -466,46 +502,126 @@ class QuantumCircuit:
                         [np.cos(theta / 2.0), -1j * np.sin(theta / 2.0)],
                         [-1j * np.sin(theta / 2.0), np.cos(theta / 2)],
                     ])
-                    self.apply_sqg(RX, qubit)
+                    self.__apply_sqg(RX, qubit)
                 elif gate == "RY":
                     theta = qubits[1]
                     RY = np.array([
                         [np.cos(theta / 2.0), -np.sin(theta / 2.0)],
                         [np.sin(theta / 2.0), np.cos(theta / 2.0)],
                     ])
-                    self.apply_sqg(RY, qubit)
+                    self.__apply_sqg(RY, qubit)
                 elif gate == "RZ":
                     theta = qubits[1]
                     RZ = np.array([
                         [np.exp(-1j * (theta / 2.0)), 0],
                         [0, np.exp(1j * (theta / 2.0))],
                     ])
-                    self.apply_sqg(RZ, qubit)
+                    self.__apply_sqg(RZ, qubit)
 
                 elif gate == "CNOT":
                     control, target = qubits
-                    self.apply_cnot(control, target)
+                    self.__apply_cnot(control, target)
                 elif gate == "SWAP":
                     target1, target2 = qubits
-                    self.apply_swap(target1, target2)
+                    self.__apply_swap(target1, target2)
                 elif gate == "CCNOT":
                     control1, control2, target = qubits
-                    self.apply_ccnot(control1, control2, target)
+                    self.__apply_ccnot(control1, control2, target)
                 elif gate == "CSWAP":
                     control, target1, target2 = qubits
-                    self.apply_cswap(control, target1, target2)
+                    self.__apply_cswap(control, target1, target2)
 
-
-    def dump(self):
+    def dump(self, msg: str = "", format_: str = "outline"):
         """
         Prints all the basis states of the quantum circuit in a human-readable format.
 
         Args:
-            header (str, optional): A header string to print at the top of the output.
-        """
-        self.eval_state_vector()
-        self.evaluated = True
+            msg (str, optional): A header string to print at the top of the output.
+            format_ (str, optional): The output format of the table ("plain" by default)
 
+        Available formats:
+            1.   "plain",
+            2.   "simple",
+            3.   "github",
+            4.   "grid",
+            5.   "simple_grid",
+            6.   "rounded_grid",
+            7.   "heavy_grid",
+            8.   "mixed_grid",
+            9.   "double_grid",
+            10.  "fancy_grid",
+            11.  "outline",
+            12.  "simple_outline",
+            13.  "rounded_outline",
+            14.  "heavy_outline",
+            15.  "mixed_outline",
+            16.  "double_outline",
+            17.  "fancy_outline",
+            18.  "pipe",
+            19.  "orgtbl",
+            20.  "asciidoc",
+            21.  "jira",
+            22.  "presto",
+            23.  "pretty",
+            24.  "psql",
+            25.  "rst",
+            26.  "mediawiki",
+            27.  "moinmoin",
+            28.  "youtrack",
+            29.  "html",
+            30.  "unsafehtml",
+            31.  "latex",
+            32.  "latex_raw",
+            33.  "latex_booktabs",
+            34.  "latex_longtable",
+            35.  "textile",
+            36.  "tsv"
+
+        Raises:
+            ValueError: if 'format' is not in the list of available formats
+        """
+        formats = [
+            "plain",
+            "simple",
+            "github",
+            "grid",
+            "simple_grid",
+            "rounded_grid",
+            "heavy_grid",
+            "mixed_grid",
+            "double_grid",
+            "fancy_grid",
+            "outline",
+            "simple_outline",
+            "rounded_outline",
+            "heavy_outline",
+            "mixed_outline",
+            "double_outline",
+            "fancy_outline",
+            "pipe",
+            "orgtbl",
+            "asciidoc",
+            "jira",
+            "presto",
+            "pretty",
+            "psql",
+            "rst",
+            "mediawiki",
+            "moinmoin",
+            "youtrack",
+            "html",
+            "unsafehtml",
+            "latex",
+            "latex_raw",
+            "latex_booktabs",
+            "latex_longtable",
+            "textile",
+            "tsv",
+        ]
+        self._eval_state_vector()
+        self.__evaluated = True
+
+        print(msg)
         probabilities = np.abs(self.state_vector) ** 2
         phases = np.angle(self.state_vector)
 
@@ -519,29 +635,29 @@ class QuantumCircuit:
                 amplitude = f"{self.state_vector[i].real:.6f} {sign} {abs(self.state_vector[i].imag):.6f}i"
 
                 row = [
-                    f"|{i:0{bits}b}>",
+                    f"|{i:0{bits}b}⟩",
                     f"{(prob * 100):.6f}%",
                     f"{amplitude}",
                     f"{phases[i]}",
                 ]
                 table.append(row)
-
-        print(
-            tabulate(
-                table[1:], headers=table[0], tablefmt="heavy_grid", stralign="centre"
+        if format_ not in formats:
+            raise ValueError(
+                f'"{format_}" is not in the available list of formats. For more information, consult the documentation on pypi'
             )
-        )
+
+        print(tabulate(table[1:], headers=table[0], tablefmt=format_))
 
     def measure_all(self):
         """
-        Measures all qubits and their respective states.
-        
+        Measures all qubits and their respective states. Collapses the state vector to one of the basis states.
+
         Returns:
             str: the basis state it collapses to
         """
-        self.eval_state_vector()
-        self.evaluated = True
-        prob = np.abs(self.state_vector)**2
+        self._eval_state_vector()
+        self.__evaluated = True
+        prob = np.abs(self.state_vector) ** 2
         prob /= np.sum(prob)
         basis_state = np.random.choice(2**self.qubits_count, p=prob)
         new_state_vector = np.zeros(2**self.qubits_count, dtype=complex)
@@ -550,6 +666,9 @@ class QuantumCircuit:
         self.state_vector = new_state_vector
         return bin(basis_state)[2:]
 
+    def measure(self, i: int):
+        _check_index(i, self.qubits_count)
+        self.circuit.append(("M", [i]))
 
     def draw(self, header: str = ""):
         """
@@ -560,7 +679,7 @@ class QuantumCircuit:
         """
         circuit = self.circuit
 
-        gate_symbols = {
+        GATE_SYMBOLS = {
             "H": "H",
             "I": "I",
             "X": "X",
@@ -575,7 +694,6 @@ class QuantumCircuit:
             "Rz": "Rᴢ",
             "P": "-P",
             "CCNOT": "⨁",
-            # Add more gate symbols as needed
         }
 
         num_qubits = self.qubits_count
@@ -588,7 +706,7 @@ class QuantumCircuit:
             entangle = [
                 " "
                 for _ in range(
-                    3 * num_gates + 4 + len(self.thetas) + 2 * len(self.thetas)
+                    3 * num_gates + 4 + len(self.__thetas) + 2 * len(self.__thetas)
                 )
             ]
             line_str = ""
@@ -598,7 +716,7 @@ class QuantumCircuit:
                 TARGET = targets[-1]
                 if gate in ("Rx", "Ry", "Rz", "P"):
                     theta_gates += 1
-                    theta_len += len(str(self.thetas[theta_gates]))
+                    theta_len += len(str(self.__thetas[theta_gates]))
 
                 if qubit in targets:
                     if len(targets) > 1:
@@ -607,7 +725,7 @@ class QuantumCircuit:
                         elif qubit == targets[0]:
                             line_str += "—●—"
                         elif qubit == TARGET:
-                            line_str += f"—{gate_symbols[gate]}—"
+                            line_str += f"—{GATE_SYMBOLS[gate]}—"
                         elif gate == "CSWAP":
                             line_str += "—x—"
                         else:
@@ -627,12 +745,10 @@ class QuantumCircuit:
                     else:
                         if gate in ("Rx", "Ry", "Rz", "P"):
                             line_str += (
-                                f"—{gate_symbols[gate]}({self.thetas[theta_gates]})"
+                                f"—{GATE_SYMBOLS[gate]}({self.__thetas[theta_gates]})"
                             )
-                            # rxyz take a variable argument theta. Pxyz always rotate by π
-
                         else:
-                            line_str += f"—{gate_symbols[gate]}—"
+                            line_str += f"—{GATE_SYMBOLS[gate]}—"
 
                 else:
                     if gate in ("Rx", "Ry", "Rz", "P"):
@@ -647,11 +763,17 @@ class QuantumCircuit:
             print("".join(entangle))
 
 
-qc = QuantumCircuit(10)
+qc = QuantumCircuit(7)
 qc.h(0)
-qc.px(1)
-qc.cswap(0,1, 2)
+qc.h(1)
+qc.h(2)
+qc.h(3)
+qc.h(4)
 qc.h(5)
-qc.swap(5,6)
+qc.h(6)
+qc.measure(6)
+qc.measure(5)
+qc.measure(4)
 qc.dump()
-print("measured value: ", qc.measure_all())
+qc.draw()
+qc.reset_all()
