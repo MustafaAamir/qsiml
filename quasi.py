@@ -1,7 +1,6 @@
 import numpy as np
 from typing import List, Tuple
 from tabulate import tabulate
-import random
 
 HALF_SQRT = complex((1 / 2) ** 0.5)
 COMPLEX_ZERO = complex(0)
@@ -47,6 +46,7 @@ class QuantumCircuit:
         self.thetas: List[float] = []
         self.circuit: List[Tuple[str, List[int | float]]] = []
         self.state_vector = np.zeros(2**self.qubits_count, dtype=complex)
+        self.evaluated = False
 
     def px(self, i: int):
         """
@@ -356,69 +356,71 @@ class QuantumCircuit:
         return self.state_vector
 
     def eval_state_vector(self):
-        self.state_vector[0] = 1  # Initialize to |0...0>
-        for gate, qubits in self.circuit:
-            qubit = qubits[0]
-            if gate == "H":
-                self.apply_sqg(H, qubit)
-            elif gate == "X":
-                self.apply_sqg(PX, qubit)
-            elif gate == "Y":
-                self.apply_sqg(PY, qubit)
-            elif gate == "Z":
-                self.apply_sqg(PZ, qubit)
+        if not self.evaluated:
+            self.state_vector[0] = 1  # Initialize to |0...0>
+            for gate, qubits in self.circuit:
+                qubit = qubits[0]
+                if gate == "H":
+                    self.apply_sqg(H, qubit)
+                elif gate == "X":
+                    self.apply_sqg(PX, qubit)
+                elif gate == "Y":
+                    self.apply_sqg(PY, qubit)
+                elif gate == "Z":
+                    self.apply_sqg(PZ, qubit)
 
-            elif gate == "P":
-                theta = qubits[1]
-                PHASE = np.array([[1, 0], [0, np.exp(1j * theta)]])
-                self.apply_sqg(PHASE, qubit)
+                elif gate == "P":
+                    theta = qubits[1]
+                    PHASE = np.array([[1, 0], [0, np.exp(1j * theta)]])
+                    self.apply_sqg(PHASE, qubit)
 
-            elif gate == "RX":
-                theta = qubits[1]
-                RX = np.array([
-                    [np.cos(theta / 2.0), -1j * np.sin(theta / 2.0)],
-                    [-1j * np.sin(theta / 2.0), np.cos(theta / 2)],
-                ])
-                self.apply_sqg(RX, qubit)
-            elif gate == "RY":
-                theta = qubits[1]
-                RY = np.array([
-                    [np.cos(theta / 2.0), -np.sin(theta / 2.0)],
-                    [np.sin(theta / 2.0), np.cos(theta / 2.0)],
-                ])
-                self.apply_sqg(RY, qubit)
-            elif gate == "RZ":
-                theta = qubits[1]
-                RZ = np.array([
-                    [np.exp(-1j * (theta / 2.0)), 0],
-                    [0, np.exp(1j * (theta / 2.0))],
-                ])
-                self.apply_sqg(RZ, qubit)
+                elif gate == "RX":
+                    theta = qubits[1]
+                    RX = np.array([
+                        [np.cos(theta / 2.0), -1j * np.sin(theta / 2.0)],
+                        [-1j * np.sin(theta / 2.0), np.cos(theta / 2)],
+                    ])
+                    self.apply_sqg(RX, qubit)
+                elif gate == "RY":
+                    theta = qubits[1]
+                    RY = np.array([
+                        [np.cos(theta / 2.0), -np.sin(theta / 2.0)],
+                        [np.sin(theta / 2.0), np.cos(theta / 2.0)],
+                    ])
+                    self.apply_sqg(RY, qubit)
+                elif gate == "RZ":
+                    theta = qubits[1]
+                    RZ = np.array([
+                        [np.exp(-1j * (theta / 2.0)), 0],
+                        [0, np.exp(1j * (theta / 2.0))],
+                    ])
+                    self.apply_sqg(RZ, qubit)
 
-            elif gate == "CNOT":
-                control, target = qubits
-                self.apply_cnot(control, target)
-            elif gate == "SWAP":
-                target1, target2 = qubits
-                self.apply_swap(target1, target2)
-            elif gate == "CCNOT":
-                control1, control2, target = qubits
-                self.apply_ccnot(control1, control2, target)
-            elif gate == "CSWAP":
-                control, target1, target2 = qubits
-                self.apply_cswap(control, target1, target2)
+                elif gate == "CNOT":
+                    control, target = qubits
+                    self.apply_cnot(control, target)
+                elif gate == "SWAP":
+                    target1, target2 = qubits
+                    self.apply_swap(target1, target2)
+                elif gate == "CCNOT":
+                    control1, control2, target = qubits
+                    self.apply_ccnot(control1, control2, target)
+                elif gate == "CSWAP":
+                    control, target1, target2 = qubits
+                    self.apply_cswap(control, target1, target2)
 
 
     def dump(self):
         self.eval_state_vector()
+        self.evaluated = True
+
         probabilities = np.abs(self.state_vector) ** 2
-        print(probabilities)
         phases = np.angle(self.state_vector)
 
         table = [["Basis State", "Probability", "Amplitude", "Phase"]]
         bits = f"{self.qubits_count}"
         for i, prob in enumerate(probabilities):
-            if prob > 1e-10:  # Ignore very small probabilities
+            if prob > 1e-7:  # Ignore very small probabilities
                 sign = "+"
                 if self.state_vector[i].imag < 0:
                     sign = "-"
@@ -452,12 +454,15 @@ class QuantumCircuit:
             IndexError if i < 0 or i > self.qubits_count
         """
         self.eval_state_vector()
+        self.evaluated = True
         prob = np.abs(self.state_vector)**2
         prob /= np.sum(prob)
         basis_state = np.random.choice(2**self.qubits_count, p=prob)
-        print(bin(basis_state)[2:])
+        new_state_vector = np.zeros(2**self.qubits_count, dtype=complex)
 
-        #something to collapse state vector
+        new_state_vector[basis_state] = 1.0
+        self.state_vector = new_state_vector
+        return bin(basis_state)[2:]
 
 
     def draw(self, header: str = ""):
@@ -568,6 +573,7 @@ qc.cnot(7, 8)
 qc.cnot(8, 9)
 """can't use measure_all before dump, fucks up the statevector"""
 """because i haven't collapsed it yet"""
-qc.measure_all()
+
 qc.dump()
+print("measured value: ", qc.measure_all())
 
