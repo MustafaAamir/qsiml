@@ -23,6 +23,7 @@ Apply gates
 ```python
 qc.h(0)
 qc.px(1)
+qc.rx(2,np.pi)
 qc.ccnot(0, 1, 2)
 ```
 Dump all possible states
