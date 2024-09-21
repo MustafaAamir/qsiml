@@ -36,10 +36,19 @@ def _check_distinct(args: List[int]):
 
 class Qubit:
     def __init__(self):
+        """
+        Initializes a new Qubit object with an initial state of [1, 0].
+        """
         self.states: List[complex] = INITIAL_STATE
 
 
 class QuantumCircuit:
+    """
+        Initializes a new QuantumCircuit object with the given number of qubits.
+
+        Args:
+            n (int, optional): The number of qubits in the circuit. Defaults to 1.
+    """
     def __init__(self, n: int = 1):
         self.qubits: List[Qubit] = [Qubit() for _ in range(n)]
         self.qubits_count: int = n
@@ -287,6 +296,12 @@ class QuantumCircuit:
             print(f"{i + 1}. {gate} on {qubit_plural} {target_str}")
 
     def _katas(self, header=""):
+        """
+        Prints the quantum circuit in a format suitable for copy-pasting into Q# katas.
+
+        Args:
+            header (str, optional): A header string to print at the top of the output.
+        """
         print(header)
         length = self.qubits_count
         output_str = ""
@@ -300,6 +315,16 @@ class QuantumCircuit:
         print(output_str)
 
     def apply_sqg(self, gate, qubit):
+        """
+        Applies a single-qubit gate to a specified qubit in the quantum circuit.
+
+        Args:
+            gate (np.ndarray): A 2x2 numpy array representing the single-qubit gate to be applied.
+            qubit (int): The index of the qubit to apply the gate to.
+
+        Raises:
+            IndexError: If the specified qubit index is out of range.
+        """
         n = 2**self.qubits_count
         for i in range(0, n, 2 ** (qubit + 1)):
             for j in range(2**qubit):
@@ -310,6 +335,17 @@ class QuantumCircuit:
                 )
 
     def apply_cnot(self, control, target):
+        """
+        Applies a controlled-NOT gate to the control and target qubits.
+
+        Args:
+            control (int): The index of the control qubit.
+            target (int): The index of the target qubit.
+
+        Raises:
+            IndexError if either index is out of range.
+            ValueError if the indices are not distinct.
+        """
         n = 2**self.qubits_count
         for i in range(n):
             if (i & (1 << control)) and not (i & (1 << target)):
@@ -320,6 +356,18 @@ class QuantumCircuit:
                 )
 
     def apply_ccnot(self, control1, control2, target):
+        """
+        Applies a controlled-CNOT gate to the control and target qubits.
+
+        Args:
+            control1 (int): The index of the first control qubit.
+            control2 (int): The index of the second control qubit.
+            target (int): The index of the target qubit.
+
+        Raises:
+            IndexError if any index is out of range.
+            ValueError if the indices are not distinct.
+        """
         n = 2**self.qubits_count
         for i in range(n):
             if (
@@ -334,6 +382,18 @@ class QuantumCircuit:
                 )
 
     def apply_cswap(self, control, target1, target2):
+        """
+        Applies a controlled-SWAP gate to the two target qubits, controlled by the control qubit.
+
+        Args:
+            control (int): The index of the control qubit.
+            target1 (int): The index of the first target qubit.
+            target2 (int): The index of the second target qubit.
+
+        Raises:
+            IndexError if any index is out of range.
+            ValueError if any pair of indices are not distinct.
+        """
         n = 2**self.qubits_count
         nsv = np.zeros(n, dtype=complex)
         for i in range(n):
@@ -351,6 +411,17 @@ class QuantumCircuit:
         self.state_vector = nsv
 
     def apply_swap(self, target1, target2):
+        """
+        Applies a SWAP gate to the two given qubits.
+
+        Args:
+            target1 (int): The index of the first qubit.
+            target2 (int): The index of the second qubit.
+
+        Raises:
+            IndexError if either index is out of range.
+            ValueError if the indices are not distinct.
+        """
         n = 2**self.qubits_count
         nsv = np.zeros(n, dtype=complex)
         for i in range(n):
@@ -365,6 +436,10 @@ class QuantumCircuit:
         self.state_vector = nsv
 
     def eval_state_vector(self):
+        """
+        Evaluates the state vector of the quantum circuit.
+        """
+
         if not self.evaluated:
             self.state_vector[0] = 1  # Initialize to |0...0>
             for gate, qubits in self.circuit:
@@ -422,6 +497,12 @@ class QuantumCircuit:
 
 
     def dump(self):
+        """
+        Prints all the basis states of the quantum circuit in a human-readable format.
+
+        Args:
+            header (str, optional): A header string to print at the top of the output.
+        """
         self.eval_state_vector()
         self.evaluated = True
 
@@ -453,7 +534,8 @@ class QuantumCircuit:
 
     def measure_all(self):
         """
-
+        Measures all qubits and their respective states.
+        
         Returns:
             str: the basis state it collapses to
         """
@@ -566,8 +648,10 @@ class QuantumCircuit:
 
 
 qc = QuantumCircuit(10)
-qc.px(0)
+qc.h(0)
 qc.px(1)
-qc.cswap(1, 0, 2)
+qc.cswap(0,1, 2)
+qc.h(5)
+qc.swap(5,6)
 qc.dump()
 print("measured value: ", qc.measure_all())
