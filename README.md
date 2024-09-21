@@ -49,7 +49,7 @@ The controlled-NOT gate, denoted by cnot(control, target), applies a NOT gate to
 
 The controlled-NOT gate, denoted by ccnot(control1, control2, target), applies a NOT gate to the target qubit if both the control qubits are in the state |1.
 
-###Controlled-SWAP Gate (CSWAP)
+### Controlled-SWAP Gate (CSWAP)
 
 The controlled-NOT gate, denoted by cswap(control, target1, target2), applies a SWAP gate to the target qubits if the control qubit is in the state |1.
 
@@ -58,42 +58,48 @@ The controlled-NOT gate, denoted by cswap(control, target1, target2), applies a 
 
 The dump() function is used to print all possible states of the quantum circuit in a human-readable format. The dump function works by iterating over all possible states of the qubits and printing the corresponding state vector.
 
-For example, if we have a 2-qubit circuit with the following gates:
-
-Edit
-Copy code
+### Example Code:
+```python
 qc = QuantumCircuit(2)
 qc.h(0)
 qc.cx(0, 1)
-The dump() function would output:
-
-Edit
-Copy code
-|00: 0.5 + 0.5i
-|01: 0.5 + 0.5i
-|10: 0.5 - 0.5i
-|11: 0.5 - 0.5i
+qc.dump()
+```
+Output: 
+```
++---------------+---------------+----------------------+---------+
+| Basis State   | Probability   | Amplitude            |   Phase |
++===============+===============+======================+=========+
+| |000⟩         | 50.000000%    | 0.707107 + 0.000000i |       0 |
+| |011⟩         | 50.000000%    | 0.707107 + 0.000000i |       0 |
++---------------+---------------+----------------------+---------+
+```
 This shows that the circuit is in a superposition of all four possible states, with equal probability of measuring each state.
 
 ### Draw Function
 
 The draw() function is used to visualize the quantum circuit as a text-based diagram. The draw function works by iterating over the gates in the circuit and printing a corresponding symbol for each gate.
 
-For example, if we have a 2-qubit circuit with the following gates:
+### Example Code:
 
-Edit
-Copy code
+```python
 qc = QuantumCircuit(2)
 qc.h(0)
-qc.cx(0, 1)
-The draw() function would output:
+qc.cnot(0, 1)
+qc.draw()
 
-Edit
-Copy code
-  h  |
-  |  |
-  cx |
-  |  |
+```
+Output: 
+```
+
+|q0⟩—H——●—
+        │ 
+|q1⟩————⨁—
+
+|q2⟩——————
+
+```
+
 This shows the Hadamard gate applied to qubit 0, followed by the controlled-NOT gate applied to qubits 0 and 1.
 
 ### Getting Started
