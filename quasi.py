@@ -1,6 +1,7 @@
 from typing import List, Tuple
 from tabulate import tabulate
 import numpy as np
+import random
 
 COMPLEX_ZERO = complex(0)
 COMPLEX_ONE = complex(1)
@@ -52,7 +53,8 @@ class QuantumCircuit:
         self.qubits_count: int = n
         self.__thetas: List[float] = []
         # measures contains measured values
-        self.measures: List[int] = []
+        self.__measures: List[int] = []
+        self.__measures_in: List[int] =[]
         self.circuit: List[Tuple[str, List[int | float]]] = []
         self.state_vector = np.zeros(2**self.qubits_count, dtype=complex)
         self.__evaluated: bool = False
@@ -467,7 +469,7 @@ class QuantumCircuit:
 
         self.state_vector = nsv
 
-        self.measures.append(ret)
+        self.__measures.append(ret)
 
     def _eval_state_vector(self):
         """
@@ -650,7 +652,7 @@ class QuantumCircuit:
 
     def measure_all(self):
         """
-        Measures all qubits and their respective states. Collapses the state vector to one of the basis states.
+        measures all qubits and their respective states. Collapses the state vector to one of the basis states.
 
         Returns:
             str: the basis state it collapses to
@@ -669,6 +671,7 @@ class QuantumCircuit:
     def measure(self, i: int):
         _check_index(i, self.qubits_count)
         self.circuit.append(("M", [i]))
+        self.__measures_in.append(i)
 
     def draw(self, header: str = ""):
         """
@@ -695,11 +698,10 @@ class QuantumCircuit:
             "P": "-P",
             "CCNOT": "⨁",
         }
-        if self.measures==[]:
+        if self.__measures==[]:
             self._eval_state_vector()
         num_qubits = self.qubits_count
         num_gates = len(circuit)
-        m_count=0
         if header != "":
             print(header)
         for qubit in range(num_qubits):
@@ -751,8 +753,7 @@ class QuantumCircuit:
                             )
                         else:
                             if gate in ("M"):
-                                entangle[3 * gate_index + 5 + 8 * (theta_gates + 1)]=str(self.measures[m_count])
-                                m_count += 1
+                                entangle[3 * gate_index + 5 + 8 * (theta_gates + 1)]=str(self.__measures[self.__measures_in.index(qubit)])
                             line_str += f"—{GATE_SYMBOLS[gate]}—"
 
                 else:
@@ -768,18 +769,16 @@ class QuantumCircuit:
             print("".join(entangle))
 
 
-for i in range(10):
-    qc = QuantumCircuit(7)
-    qc.h(0)
-    qc.h(1)
-    qc.h(2)
-    qc.h(3)
-    qc.h(4)
-    qc.h(5)
-    qc.h(6)
-    qc.measure(6)
-    qc.measure(5)
-    qc.measure(4)
-    qc.dump()
-    qc.draw()
-    qc.reset_all()
+qc=QuantumCircuit(7)
+qc.h(0)
+qc.h(1)
+qc.h(2)
+qc.h(3)
+qc.h(4)
+qc.h(5)
+qc.h(6)
+qc.measure(4)
+qc.measure(5)
+qc.measure(6)
+qc.dump()
+qc.draw()
