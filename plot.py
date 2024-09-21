@@ -19,11 +19,9 @@ def random_plot():
         qc.h(i)
         print(qc.measure(i))
 
-    # Generate a 8-bit random number
     random_number = quantum_rng(8)
     print(f"8-bit Quantum Random Number: {random_number} (binary: {random_number:08b})")
 
-    # Generate multiple 8-bit random numbers
     num_samples = 1000
     samples = [quantum_rng(8) for _ in range(num_samples)]
     counts = Counter(samples)
