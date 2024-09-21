@@ -51,8 +51,8 @@ class QuantumCircuit:
         self.qubits: List[Qubit] = [Qubit() for _ in range(n)]
         self.qubits_count: int = n
         self.__thetas: List[float] = []
-        # __measures contains measured values
-        self.__measures: List[int] = []
+        # measures contains measured values
+        self.measures: List[int] = []
         self.circuit: List[Tuple[str, List[int | float]]] = []
         self.state_vector = np.zeros(2**self.qubits_count, dtype=complex)
         self.__evaluated: bool = False
@@ -467,7 +467,7 @@ class QuantumCircuit:
 
         self.state_vector = nsv
 
-        self.__measures.append(ret)
+        self.measures.append(ret)
 
     def _eval_state_vector(self):
         """
@@ -695,9 +695,11 @@ class QuantumCircuit:
             "P": "-P",
             "CCNOT": "⨁",
         }
-
+        if self.measures==[]:
+            self._eval_state_vector()
         num_qubits = self.qubits_count
         num_gates = len(circuit)
+        m_count=0
         if header != "":
             print(header)
         for qubit in range(num_qubits):
@@ -748,6 +750,9 @@ class QuantumCircuit:
                                 f"—{GATE_SYMBOLS[gate]}({self.__thetas[theta_gates]})"
                             )
                         else:
+                            if gate in ("M"):
+                                entangle[3 * gate_index + 5 + 8 * (theta_gates + 1)]=str(self.measures[m_count])
+                                m_count += 1
                             line_str += f"—{GATE_SYMBOLS[gate]}—"
 
                 else:
@@ -763,17 +768,18 @@ class QuantumCircuit:
             print("".join(entangle))
 
 
-qc = QuantumCircuit(7)
-qc.h(0)
-qc.h(1)
-qc.h(2)
-qc.h(3)
-qc.h(4)
-qc.h(5)
-qc.h(6)
-qc.measure(6)
-qc.measure(5)
-qc.measure(4)
-qc.dump()
-qc.draw()
-qc.reset_all()
+for i in range(10):
+    qc = QuantumCircuit(7)
+    qc.h(0)
+    qc.h(1)
+    qc.h(2)
+    qc.h(3)
+    qc.h(4)
+    qc.h(5)
+    qc.h(6)
+    qc.measure(6)
+    qc.measure(5)
+    qc.measure(4)
+    qc.dump()
+    qc.draw()
+    qc.reset_all()
