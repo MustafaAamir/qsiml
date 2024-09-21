@@ -9,7 +9,7 @@ description = "A simulation of quantum circuits in python"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {file ="LICENSE"}
-keywords = ["quantum", "quantum computing", "simulator"}
+keywords = ["quantum", "quantum computing", "simulator"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
