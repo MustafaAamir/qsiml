@@ -225,7 +225,7 @@ Quantum computing leverages the principles of quantum mechanics to perform compu
 
 where `α` and `β` are complex numbers satisfying `|α⟩^2 + |β⟩^2 = 1.0`
 
-A trivial example to illustrate the, albeit niche, advantage of quantum computing over classical computing is the Deutsch-Jozsa algorithm. In the problem, we're given a black box quantum computer known as an oracle that implements some function `f: {0, 1}ⁿ-> {0, 1}`, which takes an n-bit binary value as input and returns either a 0 or a 1 for each input. The function output is either constant, either 1 OR 0 for all inputs, or balanced, 0 for exactly half of the input domain and 0 for the other half. The task is to determine if `f` is constant or balanced using the function.
+A trivial example to illustrate the, albeit niche, advantage of quantum computing over classical computing is the Deutsch-Jozsa algorithm. In the problem, we're given a black box quantum computer known as an oracle that implements some function `f: {0, 1}ⁿ-> {0, 1}`, which takes an n-bit binary value as input and returns either a 0 or a 1 for each input. The function output is either constant, either 1 OR 0 for all inputs, or balanced, 0 for exactly half of the input domain and 1 for the other half. The task is to determine if `f` is constant or balanced using the function.
 
 the deterministic classical approach requires `2^(n - 1) + 1` evaluations to prove that f is either constant or balanced. It needs to map *half + 1* the set of inputs to evaluate, with 100% certainty, the nature of the oracle. If `n := 2`:
 
