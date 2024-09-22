@@ -1,24 +1,12 @@
 from typing import List, Tuple
 from tabulate import tabulate
 import numpy as np
-import random
 
 COMPLEX_ZERO = complex(0)
 COMPLEX_ONE = complex(1)
 INITIAL_STATE = [COMPLEX_ONE, COMPLEX_ZERO]
 ZERO_STATE = INITIAL_STATE
 ONE_STATE = [COMPLEX_ZERO, COMPLEX_ONE]
-
-H = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
-
-PX = np.array([[0, 1], [1, 0]])
-
-PY = np.array([[0, -1j], [1j, 0]])
-
-PZ = np.array([[1, 0], [0, -1]])
-
-ID = np.array([[1, 0], [0, 1]])
-
 
 def _check_index(i, qubits_count: int):
     if i < 0 or i > qubits_count - 1:
@@ -72,6 +60,7 @@ class QuantumCircuit:
         """
         _check_index(i, self.qubits_count)
         self.circuit.append(("X", [i]))
+        self.__evaluated = False
 
     def py(self, i: int):
         """
@@ -86,6 +75,7 @@ class QuantumCircuit:
         """
         _check_index(i, self.qubits_count)
         self.circuit.append(("Y", [i]))
+        self.__evaluated = False
 
     def pz(self, i: int):
         """
@@ -101,6 +91,7 @@ class QuantumCircuit:
 
         _check_index(i, self.qubits_count)
         self.circuit.append(("Z", [i]))
+        self.__evaluated = False
 
     # Rotation Gates
     def rx(self, i: int, theta: float):
@@ -119,6 +110,7 @@ class QuantumCircuit:
         _check_index(i, self.qubits_count)
         self.circuit.append(("Rx", [i, theta]))
         self.__thetas.append(theta)
+        self.__evaluated = False
 
     def ry(self, i: int, theta: float):
         """
@@ -135,6 +127,7 @@ class QuantumCircuit:
         _check_index(i, self.qubits_count)
         self.circuit.append(("Ry", [i, theta]))
         self.__thetas.append(theta)
+        self.__evaluated = False
 
     def rz(self, i: int, theta: float):
         """
@@ -150,6 +143,7 @@ class QuantumCircuit:
         _check_index(i, self.qubits_count)
         self.circuit.append(("Rz", [i, theta]))
         self.__thetas.append(theta)
+        self.__evaluated = False
 
     def phase(self, i: int, theta: float):
         """
@@ -167,6 +161,7 @@ class QuantumCircuit:
         _check_index(i, self.qubits_count)
         self.circuit.append(("P", [i, theta]))
         self.__thetas.append(theta)
+        self.__evaluated = False
 
     def swap(self, i: int, j: int):
         """
@@ -183,6 +178,7 @@ class QuantumCircuit:
         _check_index(j, self.qubits_count)
         _check_distinct([i, j])
         self.circuit.append(("SWAP", [i, j]))
+        self.__evaluated = False
 
     def cnot(self, i: int, j: int):
         """
@@ -200,6 +196,7 @@ class QuantumCircuit:
         _check_index(i, self.qubits_count)
         _check_index(j, self.qubits_count)
         self.circuit.append(("CNOT", [i, j]))
+        self.__evaluated = False
 
     def h(self, i: int):
         """
@@ -213,6 +210,7 @@ class QuantumCircuit:
         """
         _check_index(i, self.qubits_count)
         self.circuit.append(("H", [i]))
+        self.__evaluated = False
 
     def i(self, i: int):
         """
@@ -226,6 +224,7 @@ class QuantumCircuit:
         """
         _check_index(i, self.qubits_count)
         self.circuit.append(("I", [i]))
+        self.__evaluated = False
 
     def cswap(self, i: int, j: int, k: int):
         """
@@ -246,6 +245,7 @@ class QuantumCircuit:
         _check_index(j, self.qubits_count)
         _check_index(k, self.qubits_count)
         self.circuit.append(("CSWAP", [i, j, k]))
+        self.__evaluated = False
 
     def ccnot(self, i: int, j: int, k: int):
         """
@@ -267,6 +267,7 @@ class QuantumCircuit:
         _check_index(k, self.qubits_count)
         _check_distinct([i, j, k])
         self.circuit.append(("CCNOT", [i, j, k]))
+        self.__evaluated = False
 
     def reset(self, i):
         """
@@ -281,6 +282,7 @@ class QuantumCircuit:
 
         _check_index(i, self.qubits_count)
         self.qubits[i].states = INITIAL_STATE
+        self.__evaluated = False
 
     def reset_all(self):
         """
@@ -472,14 +474,25 @@ class QuantumCircuit:
         self.__measures.append(ret)
 
     def _eval_state_vector(self):
+
         """
         Evaluates the state vector of the quantum circuit.
         """
 
+        H = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
+
+        PX = np.array([[0, 1], [1, 0]])
+
+        PY = np.array([[0, -1j], [1j, 0]])
+
+        PZ = np.array([[1, 0], [0, -1]])
+
+        ID = np.array([[1, 0], [0, 1]])
+
         if not self.__evaluated:
             self.state_vector[0] = 1  # Initialize to |0...0>
             for gate, qubits in self.circuit:
-                qubit = qubits[0]
+                qubit = int(qubits[0])
                 if gate == "H":
                     self.__apply_sqg(H, qubit)
                 elif gate == "X":
