@@ -733,7 +733,7 @@ class QuantumCircuit:
             entangle = [
                 " "
                 for _ in range(
-                    3 * num_gates + 4 + len(self.__thetas) + 2 * len(self.__thetas) + 3
+                    3 * num_gates + 4 + len(self.__thetas) + 2 * len(self.__thetas) + (padding + 1)
                 )
             ]
             line_str = ""
@@ -763,7 +763,7 @@ class QuantumCircuit:
                         if (qubit < TARGET and qubit >= targets[0]) or (
                             qubit >= TARGET and qubit < targets[0]
                         ):
-                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
+                            entangle[(padding - 1) + (3 * gate_index) + 5 + (8 * (theta_gates + 1))] = "│"
 
                         if (len(targets) == 3) and (
                             (qubit < TARGET and qubit >= targets[1])

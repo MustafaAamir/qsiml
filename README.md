@@ -1,128 +1,381 @@
-# Qsiml: A Fast, Minimal Quantum Computing Simulator in Python
+# Qsiml: A Quantum Computing Simulator
 
-### Overview
+Qsiml is a Python-based quantum computing simulator that provides a minimalist approach to quantum circuit simulation.
 
-Qsiml is a lightweight, easy-to-use quantum computing simulator written in Python. It provides a simple and intuitive way to create, manipulate, and measure quantum circuits, making it an ideal tool for learning and exploring quantum computing concepts.
-
-# Installation
+## Installation
 
 ```bash
 pip install qsiml
 ```
 
-# Usage
+### Quantum Circuit
 
-Import the QuantumCircuit class
-
-### Gate Operations
-
-Qsiml supports a variety of quantum gates, each with its own unique operation. Here's a detailed explanation of how each gate works:
-
-### Hadamard Gate (H)
-
-The Hadamard gate, denoted by h(qubit), applies a Hadamard transformation to the specified qubit. The Hadamard transformation is a linear transformation that takes a qubit from the state |0to a superposition of |0and |1, denoted by:
-
-|ψ= 1/√2 (|0+ |1)
-
-In other words, the Hadamard gate creates a superposition of the qubit's state, with equal probability of measuring 0 or 1.
-
-### Pauli-X Gate (X)
-
-The Pauli-X gate, denoted by px(qubit), applies a bit flip to the specified qubit. The Pauli-X gate is equivalent to a NOT gate in classical computing, and it flips the qubit's state from |0to |1or vice versa.
-
-### Pauli-Y Gate (Y)
-
-The Pauli-Y gate, denoted by py(qubit), applies a rotation around the Y-axis of the Bloch sphere to the specified qubit. The Pauli-Y gate is equivalent to a rotation of π/2 radians around the Y-axis, and it changes the qubit's state from |0to i|1or vice versa.
-
-### Pauli-Z Gate (Z)
-
-The Pauli-Z gate, denoted by pz(qubit), applies a rotation around the Z-axis of the Bloch sphere to the specified qubit. The Pauli-Z gate is equivalent to a rotation of π/2 radians around the Z-axis, and it changes the qubit's state from |0to -i|1or vice versa.
-
-### Rotation Gates (RX, RY, RZ)
-
-The rotation gates, denoted by rx(qubit, angle), ry(qubit, angle), and rz(qubit, angle), apply a rotation around the X, Y, or Z-axis of the Bloch sphere to the specified qubit, respectively. The rotation angle is specified in radians.
-
-### Phase Gate (P)
-
-The phase gate, denoted by phase(qubit, angle), applies a phase shift to the specified qubit. The phase shift is equivalent to a rotation around the Z-axis of the Bloch sphere, and it changes the qubit's state from |0to e^(i*angle)|0or vice versa.
-
-### Swap Gate (SWAP)
-
-The swap gate, denoted by swap(qubit1, qubit2), swaps the states of two qubits.
-
-### Controlled-NOT Gate (CNOT)
-
-The controlled-NOT gate, denoted by cnot(control, target), applies a NOT gate to the target qubit if the control qubit is in the state |1.
-
-
-### Controlled-CNOT Gate (CCNOT)
-
-The controlled-NOT gate, denoted by ccnot(control1, control2, target), applies a NOT gate to the target qubit if both the control qubits are in the state |1.
-
-### Controlled-SWAP Gate (CSWAP)
-
-The controlled-NOT gate, denoted by cswap(control, target1, target2), applies a SWAP gate to the target qubits if the control qubit is in the state |1.
-
-
-### Dump Function
-
-The dump() function is used to print all possible states of the quantum circuit in a human-readable format. The dump function works by iterating over all possible states of the qubits and printing the corresponding state vector.
-
-### Example Code:
+A quantum circuit is represented by the `QuantumCircuit` class. It manages a collection of qubits and applies quantum gates to manipulate their states.
 
 ```python
-qc = QuantumCircuit(2)
-qc.h(0)
-qc.cx(0, 1)
-qc.dump()
+from qsiml import QuantumCircuit
+
+qc = QuantumCircuit(n)  # Creates a circuit with `n` qubits
 ```
-Output: 
+
+### Gates
+
+### Single-Qubit Gates
+
+1. Hadamard (H): Creates superposition
+   ```python
+   qc.h(qubit)
+   ```
+
+2. Pauli-X (NOT): Bit flip
+   ```python
+   qc.px(qubit)
+   ```
+
+3. Pauli-Y: Rotation around Y-axis
+   ```python
+   qc.py(qubit)
+   ```
+
+4. Pauli-Z: Phase flip
+   ```python
+   qc.pz(qubit)
+   ```
+
+5. Phase (P): Applies a phase shift
+   ```python
+   qc.phase(qubit, theta)
+   ```
+
+6. Rotation Gates: Rotate around X, Y, or Z axis
+   ```python
+   qc.rx(qubit, theta)
+   qc.ry(qubit, theta)
+   qc.rz(qubit, theta)
+   ```
+   where θ is the rotation angle in radians.
+
+### Multi-Qubit Gates
+
+1. CNOT: Controlled-NOT
+   ```python
+   qc.cnot(control, target)
+   ```
+
+2. SWAP: Swaps two qubits
+   ```python
+   qc.swap(qubit1, qubit2)
+   ```
+
+3. Toffoli (CCNOT): Controlled-Controlled-NOT
+   ```python
+   qc.ccnot(control1, control2, target)
+   ```
+
+4. Fredkin (CSWAP): Controlled-SWAP
+   ```python
+   qc.cswap(control, target1, target2)
+   ```
+
+## Measurement
+
+Measure all qubits, collapsing the state vector:
+
+```python
+result = qc.measure_all() # collapses the state vector to a single basis state
 ```
+
+Measure a specific qubit, partially collapsing the state vector.
+
+```python
+qc.measure(qubit)
+```
+
+## Circuit Visualization
+
+```python
+from qsiml import QuantumCircuit
+
+qc = QuantumCircuit(5)
+qc.px(0)
+qc.h(1)
+qc.h(2)
+qc.h(3)
+qc.ccnot(1, 2, 3)
+qc.ccnot(2, 3, 4)
+```
+
+Display the circuit as an ASCII diagram:
+
+```python
+qc.draw("Circuit Visualization: ")
+
+""" prints this
+
+Circuit Visualization
+
+|q0⟩—X————————————————
+
+|q1⟩————H————————●————
+                 │
+|q2⟩———————H—————●——●—
+                 │  │
+|q3⟩——————————H——⨁——●—
+                    │
+|q4⟩————————————————⨁—
+"""
+```
+Or
+```python
+qc.operations("Operations: ")
+
+""" prints the gates applied with respect to time.
+Operations:
+1. X on qubit 0
+2. H on qubit 1
+3. H on qubit 2
+4. H on qubit 3
+5. CCNOT on qubits 1, 2, 3
+6. CCNOT on qubits 2, 3, 4
+"""
+```
+
+Or
+
+```python
+print(qc.circuit)
+
+""" prints the internal circuit representation
+
+[('X', [0]), ('H', [1]), ('H', [2]), ('H', [3]), ('CCNOT', [1, 2, 3]), ('CCNOT', [2, 3, 4])]
+"""
+
+```
+## State Inspection
+
+View the circuit's state without collapsing it.
+
+```python
+qc.dump("Dump table: ")
+
+"""
+prints a table which shows the amplitude, probability, and phase of each possible basis state.
+Dump Table:
 +---------------+---------------+----------------------+---------+
 | Basis State   | Probability   | Amplitude            |   Phase |
 +===============+===============+======================+=========+
-| |000⟩         | 50.000000%    | 0.707107 + 0.000000i |       0 |
-| |011⟩         | 50.000000%    | 0.707107 + 0.000000i |       0 |
+| |00001⟩       | 12.500000%    | 0.353553 + 0.000000i |       0 |
+| |00011⟩       | 12.500000%    | 0.353553 + 0.000000i |       0 |
+| |00101⟩       | 12.500000%    | 0.353553 + 0.000000i |       0 |
+| |00111⟩       | 12.500000%    | 0.353553 + 0.000000i |       0 |
+| |01001⟩       | 12.500000%    | 0.353553 + 0.000000i |       0 |
+| |01011⟩       | 12.500000%    | 0.353553 + 0.000000i |       0 |
+| |11101⟩       | 12.500000%    | 0.353553 + 0.000000i |       0 |
+| |11111⟩       | 12.500000%    | 0.353553 + 0.000000i |       0 |
 +---------------+---------------+----------------------+---------+
+"""
 ```
-This shows that the circuit is in a superposition of all four possible states, with equal probability of measuring each state.
 
-### Draw Function
+## Examples
 
-The draw() function is used to visualize the quantum circuit as a text-based diagram. The draw function works by iterating over the gates in the circuit and printing a corresponding symbol for each gate.
-
-### Example Code:
+### Bell State Preparation
 
 ```python
 qc = QuantumCircuit(2)
 qc.h(0)
 qc.cnot(0, 1)
-qc.draw()
-
-```
-Output: 
+qc.draw("Bell State diagram: ")
+qc.dump("Bell State dump table: ")
 ```
 
+Output:
+```
+Bell State diagram:
 |q0⟩—H——●—
-        │ 
+        │
 |q1⟩————⨁—
 
-|q2⟩——————
-
+Bell State dump table:
++---------------+---------------+----------------------+---------+
+| Basis State   | Probability   | Amplitude            |   Phase |
++===============+===============+======================+=========+
+| |00⟩          | 50.000000%    | 0.707107 + 0.000000i |       0 |
+| |11⟩          | 50.000000%    | 0.707107 + 0.000000i |       0 |
++---------------+---------------+----------------------+---------+
 ```
 
-This shows the Hadamard gate applied to qubit 0, followed by the controlled-NOT gate applied to qubits 0 and 1.
+### Quantum Fourier Transform (2 qubits)
 
-### Getting Started
+```python
+qc = QuantumCircuit(2)
+qc.h(0)
+qc.phase(1, np.pi/2)
+qc.cnot(0, 1)
+qc.h(1)
+qc.swap(0, 1)
+```
 
-1. Install Qsiml using pip: pip install qsiml
-2. Import Qsiml in your Python script: from qsiml import QuantumCircuit
-3. Create a new quantum circuit: qc = QuantumCircuit(3) (creates a 3-qubit circuit)
-4. Apply gates to the circuit using methods like qc.h(0), qc.px(1), qc.rx(2, np.pi/2)
-5. Measure the circuit using qc.measure_all()
-6. Visualize the circuit execution using qc.draw()
-7. Dump all possible states of the circuit using qc.dump()
+TODO: ADD DIAGRAM AND DUMP
 
-### Documentation
+### Theory for nerds
 
-For more information on using Qsiml, including a complete list of supported gates and methods, see the Qsiml documentation.
+Quantum computing leverages the principles of quantum mechanics to perform computations. Unlike classical bits, which can be in one of two states (0 or 1), quantum bits (qubits) can exist in a superposition of states, represented as a linear combination of basis states:
+
+`|ψ⟩ = α|0⟩ + β|1⟩`
+
+where `α` and `β` are complex numbers satisfying `|α⟩^2 + |β⟩^2 = 1.0`
+
+A trivial example to illustrate the, albeit niche, advantage of quantum computing over classical computing is the Deutsch-Jozsa algorithm. In the problem, we're given a black box quantum computer known as an oracle that implements some function `f: {0, 1}ⁿ-> {0, 1}`, which takes an n-bit binary value as input and returns either a 0 or a 1 for each input. The function output is either constant, either 1 OR 0 for all inputs, or balanced, 0 for exactly half of the input domain and 0 for the other half. The task is to determine if `f` is constant or balanced using the function.
+
+the deterministic classical approach requires `2^(n - 1) + 1` evaluations to prove that f is either constant or balanced. It needs to map *half + 1* the set of inputs to evaluate, with 100% certainty, the nature of the oracle. If `n := 2`:
+
+|**x (input)** | **f(x) (output)** |
+|:--------:|:------------:|
+| 00       |    0         |
+| 01       |    0         |
+| 10       |    1         |
+| 00       |    1         |
+
+Only the first 3 calculations are required to determine that the oracle is balanced. Though, the computational complexity increases exponentially, which makes it more expensive to solve for larger values of `n`.
+This is where quantum computing shines. The Deutsch-Jozsa algorithm applies the oracle to a superposition of all possible inputs, represented by `n + 1`, where the first `n` qubits are initialized to |0⟩, and the last one is initialized to |1⟩.
+
+```python
+n = 10
+qc = QuantumCircuit(n + 1) # initialize a circuit with n + 1 qubits
+qc.px(n) # initialize the last qubit to |1⟩
+```
+Apply the Hadamard gate to all qubits to create a superposition of all possible states (try it!)
+```python
+# applies the hadamard gate to all qubits in the system
+for i in range(n + 1):
+    qc.h(i)
+```
+The next step is to create an oracle. The oracle essentially acts as a query system, which is easy to represent in classical computing by storing the mapped value in a certain memory register. In quantum computing however, this is impractical. We'll have to create a custom quantum circuit representation of an oracle. We'll use the `n + 1`th qubit as an ancilla qubit that is initialized to a state of |1⟩, and the first `n` qubits as the query. For a balanced function, the oracle should flip the ancilla qubit for exactly half of the input states.
+
+```python
+import numpy as np
+random_bits = np.random.randint(1, 2**n) # returns a random integer between 1 and 2**n - 1 inclusive.
+for i in range(n):
+    # applies cnot with control bits that lie within the randomly generated binary number. If `random_bit` = `101`, then qubits 0 and 2 would be used as control bits.
+    if a & (1 << i):
+        qc.cnot(i, n)
+```
+
+Afterwards, we revert the query qubits back to their original state by applying the hadamard gate
+
+```python
+for i in range(n):
+    qc.h(i)
+```
+
+Finally, we measure the query qubits individually
+```python
+for i in range(n):
+    qc.measure(i)
+```
+Though there's no `ClassicalRegister` to store the measured values in, the draw function can be utilized. If all measured values are 0, then the oracle is a constant function. Anything other than that, the oracle is a balanced function.
+
+Now that a balanced oracle function has been implemented, we can implement a constant oracle.
+
+```python
+from qsiml import QuantumCircuit
+import numpy as np
+
+def constant_oracle(constant_value: int):
+    if constant_value == 0:
+        qc.i(n)
+    else:
+        qc.px(n)
+
+def balanced_oracle(random_bits: int):
+    for i in range(n):
+        if random_bits & (1 << i):
+            qc.cnot(i, n)
+
+def deutsch-jozsa():
+    constant_or_balanced = np.random.randint(0, 2)
+    constant_value = np.random.randint(0, 2)
+    random_bits = np.random.randint(1, 2**n)
+
+    qc.px(n)
+    for i in range(n + 1):
+        qc.h(i)
+
+    if constant_or_balanced == 0:
+        constant_oracle(constant_value)
+    else:
+        balanced_oracle(random_bits)
+
+    for i in range(n):
+        qc.h(i)
+
+    for i in range(n):
+        qc.measure(i)
+
+
+    qc.draw()
+```
+
+returns this for a constant oracle (Notice how every measured value is 0):
+```
+|q00⟩—H——————————————————————————————————————H—————————————————————————————M————————————————————————————
+                                                                           0
+|q01⟩————H——————————————————————————————————————H—————————————————————————————M—————————————————————————
+                                                                              0
+|q02⟩———————H——————————————————————————————————————H—————————————————————————————M——————————————————————
+                                                                                 0
+|q03⟩——————————H——————————————————————————————————————H—————————————————————————————M———————————————————
+                                                                                    0
+|q04⟩—————————————H——————————————————————————————————————H—————————————————————————————M————————————————
+                                                                                       0
+|q05⟩————————————————H——————————————————————————————————————H—————————————————————————————M—————————————
+                                                                                          0
+|q06⟩———————————————————H——————————————————————————————————————H—————————————————————————————M——————————
+                                                                                             0
+|q07⟩——————————————————————H——————————————————————————————————————H—————————————————————————————M———————
+                                                                                                0
+|q08⟩—————————————————————————H——————————————————————————————————————H—————————————————————————————M————
+                                                                                                   0
+|q09⟩————————————————————————————H——————————————————————————————————————H—————————————————————————————M—
+                                                                                                      0
+|q10⟩———————————————————————————————X——H——X—————————————————————————————————————————————————————————————
+```
+
+And this for a balanced oracle (The measured values form a non-zero bitstring)
+```
+|q00⟩—H——————————————————————————————————————————————————H—————————————————————————————M————————————————————————————
+                                                                                       0
+|q01⟩————H————————————————————————————————●—————————————————H—————————————————————————————M—————————————————————————
+                                          │                                               1
+|q02⟩———————H—————————————————————————————│————————————————————H—————————————————————————————M——————————————————————
+                                          │                                                  0
+|q03⟩——————————H——————————————————————————│———————————————————————H—————————————————————————————M———————————————————
+                                          │                                                     0
+|q04⟩—————————————H———————————————————————│——————————————————————————H—————————————————————————————M————————————————
+                                          │                                                        0
+|q05⟩————————————————H————————————————————│—————————————————————————————H—————————————————————————————M—————————————
+                                          │                                                           0
+|q06⟩———————————————————H—————————————————│——●—————————————————————————————H—————————————————————————————M——————————
+                                          │  │                                                           1
+|q07⟩——————————————————————H——————————————│——│——●—————————————————————————————H—————————————————————————————M———————
+                                          │  │  │                                                           1
+|q08⟩—————————————————————————H———————————│——│——│——●—————————————————————————————H—————————————————————————————M————
+                                          │  │  │  │                                                           1
+|q09⟩————————————————————————————H————————│——│——│——│——●—————————————————————————————H—————————————————————————————M—
+                                          │  │  │  │  │                                                           1
+|q10⟩———————————————————————————————X——H——⨁——⨁——⨁——⨁——⨁—————————————————————————————————————————————————————————————
+```
+
+
+### State Vector Representation
+
+In Qsiml, an n-qubit system is represented by a 2^n dimensional complex vector, known as the state vector. For example, a two-qubit system is represented by a 4-dimensional vector:
+
+`|ψ⟩ = α|00⟩ + β|01⟩ + γ|10⟩ + δ|11⟩`
+
+where `|α|^2 + |β|^2 + |γ|^2 + |δ|^2 = 1`.
+
+### Quantum Gates
+
+Quantum gates are unitary operations that transform the state vector. They are represented by `2^n × 2^n` unitary matrices. Qsiml applies these matrices to the state vector to evolve the quantum state.
+
