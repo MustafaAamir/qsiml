@@ -4,6 +4,16 @@
 
 Qsiml is a lightweight, easy-to-use quantum computing simulator written in Python. It provides a simple and intuitive way to create, manipulate, and measure quantum circuits, making it an ideal tool for learning and exploring quantum computing concepts.
 
+# Installation
+
+```bash
+pip install qsiml
+```
+
+# Usage
+
+Import the QuantumCircuit class
+
 ### Gate Operations
 
 Qsiml supports a variety of quantum gates, each with its own unique operation. Here's a detailed explanation of how each gate works:
@@ -59,6 +69,7 @@ The controlled-NOT gate, denoted by cswap(control, target1, target2), applies a 
 The dump() function is used to print all possible states of the quantum circuit in a human-readable format. The dump function works by iterating over all possible states of the qubits and printing the corresponding state vector.
 
 ### Example Code:
+
 ```python
 qc = QuantumCircuit(2)
 qc.h(0)
