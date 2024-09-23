@@ -1,15 +1,13 @@
 from typing import List, Tuple
 from tabulate import tabulate
 import numpy as np
-import sys
-import random
-import cmath
 
 COMPLEX_ZERO = complex(0)
 COMPLEX_ONE = complex(1)
 INITIAL_STATE = [COMPLEX_ONE, COMPLEX_ZERO]
 ZERO_STATE = INITIAL_STATE
 ONE_STATE = [COMPLEX_ZERO, COMPLEX_ONE]
+
 
 def _check_index(i, qubits_count: int):
     if i < 0 or i > qubits_count - 1:
@@ -42,11 +40,11 @@ class QuantumCircuit:
     def __init__(self, n: int = 1):
         self.qubits: List[Qubit] = [Qubit() for _ in range(n)]
         self.qubits_count: int = n
-        self.__thetas: List[float] = []
+        self.__thetas: List[str] = []
         # measures contains measured values
         self.__measures: List[int] = []
-        self.Len=0
-        self.__measures_in: List[int] =[]
+        self.Len = 0
+        self.__measures_in: List[int] = []
         self.circuit: List[Tuple[str, List[int | float]]] = []
         self.state_vector = np.zeros(2**self.qubits_count, dtype=complex)
         self.__evaluated: bool = False
@@ -97,12 +95,18 @@ class QuantumCircuit:
         self.circuit.append(("Z", [i]))
         self.__evaluated = False
 
+    def theta_que(self, theta):
+        if theta == int(theta):
+            theta_len = len(str(theta))
+            theta = str(int(theta)) + "." + "0" * (7 - theta_len)
+        elif len(str(theta)) < 6:
+            theta_len = len(str(float(theta)))
+            theta = str(float(theta)) + "0" * (6 - theta_len)
+        else:
+            theta = str(float(theta))[:6]
+        self.Len += len((theta))
+        self.__thetas.append(str(theta))
 
-    def theta_que(self,theta):
-        if len(str(theta))>6:
-            theta=float(str(theta)[:6])
-        self.Len+=len(str(theta))
-        self.__thetas.append(theta)
     # Rotation Gates
     def rx(self, i: int, theta: float):
         """
@@ -118,8 +122,8 @@ class QuantumCircuit:
         """
 
         _check_index(i, self.qubits_count)
-        self.circuit.append(("Rx", [i, theta]))
-        self.theta_que(theta)
+        self.circuit.append(("Rx", [i]))
+        self.theta_que(float(theta))
         self.__evaluated = False
 
     def ry(self, i: int, theta: float):
@@ -135,8 +139,8 @@ class QuantumCircuit:
         """
 
         _check_index(i, self.qubits_count)
-        self.circuit.append(("Ry", [i, theta]))
-        self.theta_que(theta)
+        self.circuit.append(("Ry", [i, float(theta)]))
+        self.theta_que(float(theta))
         self.__evaluated = False
 
     def rz(self, i: int, theta: float):
@@ -151,8 +155,8 @@ class QuantumCircuit:
             IndexError if the index 'i' is out of range
         """
         _check_index(i, self.qubits_count)
-        self.circuit.append(("Rz", [i, theta]))
-        self.theta_que(theta)
+        self.circuit.append(("Rz", [i, float(theta)]))
+        self.theta_que(float(theta))
         self.__evaluated = False
 
     def phase(self, i: int, theta: float):
@@ -169,8 +173,8 @@ class QuantumCircuit:
         """
 
         _check_index(i, self.qubits_count)
-        self.circuit.append(("P", [i, theta]))
-        self.theta_que(theta)
+        self.circuit.append(("P", [i, float(theta)]))
+        self.theta_que(float(theta))
         self.__evaluated = False
 
     def swap(self, i: int, j: int):
@@ -299,7 +303,7 @@ class QuantumCircuit:
         Reset every qubit in the circuit to the |0⟩ state.
         """
         self.qubits: List[Qubit] = [Qubit() for _ in range(self.qubits_count)]
-        self.__thetas: List[float] = []
+        self.__thetas: List[str] = []
         self.circuit: List[Tuple[str, List[int | float]]] = []
         self.state_vector = np.zeros(2**self.qubits_count, dtype=complex)
         self.__evaluated = False
@@ -465,8 +469,8 @@ class QuantumCircuit:
         pone = 0
         ret = 0
         for i in range(2**self.qubits_count):
-            if (i & (1 << qubit)):
-                pone += np.abs(self.state_vector[i])**2
+            if i & (1 << qubit):
+                pone += np.abs(self.state_vector[i]) ** 2
         if np.random.random() < pone:
             ret = 1
 
@@ -484,7 +488,6 @@ class QuantumCircuit:
         self.__measures.append(ret)
 
     def _eval_state_vector(self):
-
         """
         Evaluates the state vector of the quantum circuit.
         """
@@ -697,6 +700,7 @@ class QuantumCircuit:
         self.__measures_in.append(i)
 
     def draw(self, header: str = ""):
+        print(self.__thetas)
         """
         Print an ASCII representation of the quantum circuit.
 
@@ -721,7 +725,7 @@ class QuantumCircuit:
             "P": "-P",
             "CCNOT": "⨁",
         }
-        if self.__measures==[]:
+        if self.__measures == []:
             self._eval_state_vector()
         num_qubits = self.qubits_count
         num_gates = len(circuit)
@@ -743,7 +747,7 @@ class QuantumCircuit:
             entangle = [
                 " "
                 for _ in range(
-                    3 * num_gates + 3 + self.Len + 2 * len(self.__thetas) +padding
+                    3 * num_gates + 3 + self.Len + 2 * len(self.__thetas) + padding
                 )
             ]
             line_str = ""
@@ -757,8 +761,10 @@ class QuantumCircuit:
                     theta_gates += 1
                     theta_len += len(str(self.__thetas[theta_gates]))
 
-                if qubit in targets:
-                    if len(targets) > 1 and not(isinstance(targets[1], float)):
+                if qubit in targets and not (
+                    qubit == TARGET and gate in ("Rx", "Ry", "Rz", "P")
+                ):
+                    if len(targets) > 1 and not (isinstance(targets[1], float)):
                         if gate == "SWAP":
                             line_str += "—x—"
                         elif qubit == targets[0]:
@@ -773,13 +779,23 @@ class QuantumCircuit:
                         if (qubit < TARGET and qubit >= targets[0]) or (
                             qubit >= TARGET and qubit < targets[0]
                         ):
-                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
+                            entangle[
+                                (padding - 1)
+                                + 3 * gate_index
+                                + 5
+                                + 8 * (theta_gates + 1)
+                            ] = "│"
 
                         if (len(targets) == 3) and (
                             (qubit < TARGET and qubit >= targets[1])
                             or (qubit >= TARGET and qubit < targets[1])
                         ):
-                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
+                            entangle[
+                                (padding - 1)
+                                + 3 * gate_index
+                                + 5
+                                + 8 * (theta_gates + 1)
+                            ] = "│"
 
                     else:
                         if gate in ("Rx", "Ry", "Rz", "P"):
@@ -788,7 +804,14 @@ class QuantumCircuit:
                             )
                         else:
                             if gate in ("M"):
-                                entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)]=str(self.__measures[self.__measures_in.index(qubit)])
+                                entangle[
+                                    (padding - 1)
+                                    + 3 * gate_index
+                                    + 5
+                                    + 8 * (theta_gates + 1)
+                                ] = str(
+                                    self.__measures[self.__measures_in.index(qubit)]
+                                )
                             line_str += f"—{GATE_SYMBOLS[gate]}—"
 
                 else:
@@ -797,31 +820,24 @@ class QuantumCircuit:
                     else:
                         if qubit < max(targets) and qubit > min(targets):
                             line_str += "—│—"
-                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
+                            entangle[
+                                (padding - 1)
+                                + 3 * gate_index
+                                + 5
+                                + 8 * (theta_gates + 1)
+                            ] = "│"
                         else:
                             line_str += "—" * 3
             print(line_str)
             print("".join(entangle))
 
-qc = QuantumCircuit(10)
-qc.swap(2, 7)
-qc.phase(5, 0.029894449283742693)
-qc.ccnot(8, 6, 0)
-qc.cnot(3, 5)
-qc.cnot(8, 3)
-qc.ccnot(8, 7, 6)
-qc.cswap(0, 1, 6)
-qc.swap(0, 6)
-qc.ry(8, 2.961675126617143)
+
+qc = QuantumCircuit(2)
+qc.h(0)
+qc.phase(1, np.pi/2)
 qc.cnot(0, 1)
-qc.rx(4, 1.5976798923553746)
-qc.cswap(1, 5, 2)
-qc.ry(0, 0.8473061135504489)
-qc.cswap(3, 9, 0)
-qc.ccnot(2, 3, 6)
-qc.swap(4, 0)
-qc.swap(0, 9)
-qc.ry(0, 0.861107914305094)
-qc.rz(1, 0.5157573130213783)
-qc.cswap(7, 8, 2)
+qc.h(1)
+qc.swap(0, 1)
 qc.draw()
+qc.dump()
+

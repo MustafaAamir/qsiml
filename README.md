@@ -109,9 +109,8 @@ Display the circuit as an ASCII diagram:
 
 ```python
 qc.draw("Circuit Visualization: ")
-
-""" prints this
-
+```
+```
 Circuit Visualization
 
 |q0⟩—X————————————————
@@ -123,13 +122,14 @@ Circuit Visualization
 |q3⟩——————————H——⨁——●—
                     │
 |q4⟩————————————————⨁—
-"""
 ```
 Or
 ```python
 qc.operations("Operations: ")
 
-""" prints the gates applied with respect to time.
+```
+prints the gates applied with respect to time:
+
 Operations:
 1. X on qubit 0
 2. H on qubit 1
@@ -137,7 +137,6 @@ Operations:
 4. H on qubit 3
 5. CCNOT on qubits 1, 2, 3
 6. CCNOT on qubits 2, 3, 4
-"""
 ```
 
 Or
@@ -213,6 +212,29 @@ qc.phase(1, np.pi/2)
 qc.cnot(0, 1)
 qc.h(1)
 qc.swap(0, 1)
+qc.draw()
+qc.dump()
+```
+
+```
+Draw:
+
+|q0⟩—H—————————————●—————x—
+                   │     │
+|q1⟩————-P(1.5707)—⨁——H——x—
+```
+
+```
+Dump:
+
++---------------+---------------+-----------------------+---------+
+| Basis State   | Probability   | Amplitude             |   Phase |
++===============+===============+=======================+=========+
+| |00⟩          | 56.250000%    | 0.750000 + 0.000000i  | 0       |
+| |01⟩          | 56.250000%    | 0.750000 + 0.000000i  | 0       |
+| |10⟩          | 31.250000%    | 0.250000 + 0.500000i  | 1.10715 |
+| |11⟩          | 31.250000%    | -0.250000 + 0.500000i | 2.03444 |
++---------------+---------------+-----------------------+---------+
 ```
 
 TODO: ADD DIAGRAM AND DUMP
@@ -374,8 +396,4 @@ In Qsiml, an n-qubit system is represented by a 2^n dimensional complex vector, 
 `|ψ⟩ = α|00⟩ + β|01⟩ + γ|10⟩ + δ|11⟩`
 
 where `|α|^2 + |β|^2 + |γ|^2 + |δ|^2 = 1`.
-
-### Quantum Gates
-
-Quantum gates are unitary operations that transform the state vector. They are represented by `2^n × 2^n` unitary matrices. Qsiml applies these matrices to the state vector to evolve the quantum state.
 
