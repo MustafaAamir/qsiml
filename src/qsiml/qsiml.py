@@ -1,6 +1,9 @@
 from typing import List, Tuple
 from tabulate import tabulate
 import numpy as np
+import sys
+import random
+import cmath
 
 COMPLEX_ZERO = complex(0)
 COMPLEX_ONE = complex(1)
@@ -42,6 +45,7 @@ class QuantumCircuit:
         self.__thetas: List[float] = []
         # measures contains measured values
         self.__measures: List[int] = []
+        self.Len=0
         self.__measures_in: List[int] =[]
         self.circuit: List[Tuple[str, List[int | float]]] = []
         self.state_vector = np.zeros(2**self.qubits_count, dtype=complex)
@@ -93,6 +97,12 @@ class QuantumCircuit:
         self.circuit.append(("Z", [i]))
         self.__evaluated = False
 
+
+    def theta_que(self,theta):
+        if len(str(theta))>6:
+            theta=float(str(theta)[:6])
+        self.Len+=len(str(theta))
+        self.__thetas.append(theta)
     # Rotation Gates
     def rx(self, i: int, theta: float):
         """
@@ -109,7 +119,7 @@ class QuantumCircuit:
 
         _check_index(i, self.qubits_count)
         self.circuit.append(("Rx", [i, theta]))
-        self.__thetas.append(theta)
+        self.theta_que(theta)
         self.__evaluated = False
 
     def ry(self, i: int, theta: float):
@@ -126,7 +136,7 @@ class QuantumCircuit:
 
         _check_index(i, self.qubits_count)
         self.circuit.append(("Ry", [i, theta]))
-        self.__thetas.append(theta)
+        self.theta_que(theta)
         self.__evaluated = False
 
     def rz(self, i: int, theta: float):
@@ -142,7 +152,7 @@ class QuantumCircuit:
         """
         _check_index(i, self.qubits_count)
         self.circuit.append(("Rz", [i, theta]))
-        self.__thetas.append(theta)
+        self.theta_que(theta)
         self.__evaluated = False
 
     def phase(self, i: int, theta: float):
@@ -160,7 +170,7 @@ class QuantumCircuit:
 
         _check_index(i, self.qubits_count)
         self.circuit.append(("P", [i, theta]))
-        self.__thetas.append(theta)
+        self.theta_que(theta)
         self.__evaluated = False
 
     def swap(self, i: int, j: int):
@@ -733,7 +743,7 @@ class QuantumCircuit:
             entangle = [
                 " "
                 for _ in range(
-                    3 * num_gates + 4 + len(self.__thetas) + 2 * len(self.__thetas) + (padding + 1)
+                    3 * num_gates + 3 + self.Len + 2 * len(self.__thetas) +padding
                 )
             ]
             line_str = ""
@@ -741,15 +751,14 @@ class QuantumCircuit:
             qubit_display = f"{padding_str}".format(qubit)
             line_str += f"|q{qubit_display}⟩"
             for gate_index in range(num_gates):
-                ENTANGLE_IDX = (padding - 1) + (3 * gate_index) + 5 + (8 * (theta_gates + 1))
                 gate, targets = circuit[gate_index]
                 TARGET = targets[-1]
                 if gate in ("Rx", "Ry", "Rz", "P"):
                     theta_gates += 1
-                    theta_len += len(str(self.__thetas[theta_gates])[:6])
+                    theta_len += len(str(self.__thetas[theta_gates]))
 
                 if qubit in targets:
-                    if len(targets) > 1:
+                    if len(targets) > 1 and not(isinstance(targets[1], float)):
                         if gate == "SWAP":
                             line_str += "—x—"
                         elif qubit == targets[0]:
@@ -764,13 +773,13 @@ class QuantumCircuit:
                         if (qubit < TARGET and qubit >= targets[0]) or (
                             qubit >= TARGET and qubit < targets[0]
                         ):
-                            entangle[ENTANGLE_IDX] = "│"
+                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
 
                         if (len(targets) == 3) and (
                             (qubit < TARGET and qubit >= targets[1])
                             or (qubit >= TARGET and qubit < targets[1])
                         ):
-                            entangle[ENTANGLE_IDX] = "│"
+                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
 
                     else:
                         if gate in ("Rx", "Ry", "Rz", "P"):
@@ -779,7 +788,7 @@ class QuantumCircuit:
                             )
                         else:
                             if gate in ("M"):
-                                entangle[ENTANGLE_IDX]=str(self.__measures[self.__measures_in.index(qubit)])
+                                entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)]=str(self.__measures[self.__measures_in.index(qubit)])
                             line_str += f"—{GATE_SYMBOLS[gate]}—"
 
                 else:
@@ -788,9 +797,31 @@ class QuantumCircuit:
                     else:
                         if qubit < max(targets) and qubit > min(targets):
                             line_str += "—│—"
-                            entangle[(padding - 1) + 3 * gate_index + 5 + 5 * (theta_gates + 1)] = "│"
+                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
                         else:
                             line_str += "—" * 3
             print(line_str)
             print("".join(entangle))
 
+qc = QuantumCircuit(10)
+qc.swap(2, 7)
+qc.phase(5, 0.029894449283742693)
+qc.ccnot(8, 6, 0)
+qc.cnot(3, 5)
+qc.cnot(8, 3)
+qc.ccnot(8, 7, 6)
+qc.cswap(0, 1, 6)
+qc.swap(0, 6)
+qc.ry(8, 2.961675126617143)
+qc.cnot(0, 1)
+qc.rx(4, 1.5976798923553746)
+qc.cswap(1, 5, 2)
+qc.ry(0, 0.8473061135504489)
+qc.cswap(3, 9, 0)
+qc.ccnot(2, 3, 6)
+qc.swap(4, 0)
+qc.swap(0, 9)
+qc.ry(0, 0.861107914305094)
+qc.rz(1, 0.5157573130213783)
+qc.cswap(7, 8, 2)
+qc.draw()
