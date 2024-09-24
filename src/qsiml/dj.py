@@ -38,6 +38,3 @@ def dj():
 
     qc.dump()
     qc.draw()
-
-if __name__ == "__main__":
-    dj()

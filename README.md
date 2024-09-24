@@ -123,32 +123,27 @@ Circuit Visualization
                     │
 |q4⟩————————————————⨁—
 ```
-Or
 ```python
 qc.operations("Operations: ")
 
 ```
 prints the gates applied with respect to time:
 
-Operations:
-1. X on qubit 0
-2. H on qubit 1
-3. H on qubit 2
-4. H on qubit 3
-5. CCNOT on qubits 1, 2, 3
-6. CCNOT on qubits 2, 3, 4
+  Operations:
+    1. X on qubit 0
+    2. H on qubit 1
+    3. H on qubit 2
+    4. H on qubit 3
+    5. CCNOT on qubits 1, 2, 3
+    6. CCNOT on qubits 2, 3, 4
 ```
-
-Or
-
 ```python
 print(qc.circuit)
-
-""" prints the internal circuit representation
+```
+```
+prints the internal circuit representation
 
 [('X', [0]), ('H', [1]), ('H', [2]), ('H', [3]), ('CCNOT', [1, 2, 3]), ('CCNOT', [2, 3, 4])]
-"""
-
 ```
 ## State Inspection
 
@@ -314,7 +309,7 @@ def balanced_oracle(random_bits: int):
         if random_bits & (1 << i):
             qc.cnot(i, n)
 
-def deutsch-jozsa():
+def deutsch_jozsa():
     constant_or_balanced = np.random.randint(0, 2)
     constant_value = np.random.randint(0, 2)
     random_bits = np.random.randint(1, 2**n)

@@ -1,9 +1,9 @@
 [project]
 name = "qsiml"
-version = "0.0.0"
+version = "0.0.1"
 authors = [
     { name="Mustafa Aamir", email="mustafa.290101@gmail.com"},
-    { name="Yusuf Sabuwala", email="yusuf.0279@gmail.com"}
+    { name="Yusuf Sabuwala", email="yusuff.0279@gmail.com"}
 ]
 description = "A simulation of quantum circuits in python"
 readme = "README.md"

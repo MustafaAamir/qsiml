@@ -832,12 +832,3 @@ class QuantumCircuit:
             print("".join(entangle))
 
 
-qc = QuantumCircuit(2)
-qc.h(0)
-qc.phase(1, np.pi/2)
-qc.cnot(0, 1)
-qc.h(1)
-qc.swap(0, 1)
-qc.draw()
-qc.dump()
-
