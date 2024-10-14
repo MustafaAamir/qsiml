@@ -1,6 +1,6 @@
 [project]
 name = "qsiml"
-version = "0.0.2"
+version = "0.0.4"
 authors = [
     { name="Mustafa Aamir", email="mustafa.290101@gmail.com"},
     { name="Yusuf Sabuwala", email="yusuff.0279@gmail.com"}
@@ -24,7 +24,7 @@ dependencies = [
 Homepage = "https://github.com/MustafaAamir/qsiml"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/"]
+packages = ["src/qsiml.py"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
