@@ -29,6 +29,11 @@ class Qubit:
         self.states: List[complex] = INITIAL_STATE
 
 
+class ClassicalBit:
+    def __init__(self, value=None):
+        self.bit: int | None = value
+
+
 class QuantumCircuit:
     """
     Initializes a new QuantumCircuit object with the given number of qubits, n.
@@ -39,11 +44,13 @@ class QuantumCircuit:
 
     def __init__(self, n: int = 1):
         self.qubits: List[Qubit] = [Qubit() for _ in range(n)]
+        # Stores the collapsed state of the nth qubit at index n
+        self.classical_bits: List[int | None] = [ClassicalBit().bit for _ in range(n)]
         self.qubits_count: int = n
         self.__thetas: List[str] = []
         # measures contains measured values
         self.__measures: List[int] = []
-        self.Len = 0
+        self.len_of_thetas = 0
         self.__measures_in: List[int] = []
         self.circuit: List[Tuple[str, List[int | float]]] = []
         self.state_vector = np.zeros(2**self.qubits_count, dtype=complex)
@@ -104,7 +111,7 @@ class QuantumCircuit:
             theta = str(float(theta)) + "0" * (6 - theta_len)
         else:
             theta = str(float(theta))[:6]
-        self.Len += len((theta))
+        self.len_of_thetas += len((theta))
         self.__thetas.append(str(theta))
 
     # Rotation Gates
@@ -486,6 +493,7 @@ class QuantumCircuit:
         self.state_vector = nsv
 
         self.__measures.append(ret)
+        self.classical_bits[qubit] = ret
 
     def _eval_state_vector(self):
         """
@@ -692,6 +700,8 @@ class QuantumCircuit:
 
         new_state_vector[basis_state] = 1.0
         self.state_vector = new_state_vector
+        for i, bit in enumerate(bin(basis_state)[2:]):
+            self.classical_bits[i] = int(bit)
         return bin(basis_state)[2:]
 
     def measure(self, i: int):
@@ -700,7 +710,6 @@ class QuantumCircuit:
         self.__measures_in.append(i)
 
     def draw(self, header: str = ""):
-        print(self.__thetas)
         """
         Print an ASCII representation of the quantum circuit.
 
@@ -735,8 +744,12 @@ class QuantumCircuit:
             padding = 2
         elif num_qubits < 1001:
             padding = 3
-        else:
+        elif num_qubits < 10001:
             padding = 4
+        elif num_qubits < 100001:
+            padding = 5
+        else:
+            padding = 6
 
         if header != "":
             print(header)
@@ -747,7 +760,11 @@ class QuantumCircuit:
             entangle = [
                 " "
                 for _ in range(
-                    3 * num_gates + 3 + self.Len + 2 * len(self.__thetas) + padding
+                    3 * num_gates
+                    + 3
+                    + self.len_of_thetas
+                    + 2 * len(self.__thetas)
+                    + padding
                 )
             ]
             line_str = ""
@@ -832,3 +849,42 @@ class QuantumCircuit:
             print("".join(entangle))
 
 
+class DeutschJozsa:
+    def __init__(self, n: int = 10):
+        self.qc = QuantumCircuit(n + 1)
+        self.n = n
+
+    def __constant_oracle(self, constant_value: int):
+        if constant_value == 0:
+            self.qc.i(self.n)
+        else:
+            self.qc.px(self.n)
+
+    def __balanced_oracle(self, random_bits: int):
+        for i in range(self.n):
+            if random_bits & (1 << i):
+                self.qc.cnot(i, self.n)
+
+    def deutsch_jozsa(self):
+        n = self.n
+        constant_or_balanced = np.random.randint(0, 2)
+        constant_value = np.random.randint(0, 2)
+        random_bits = np.random.randint(1, 2**n)
+
+        self.qc.px(n)
+        for i in range(n + 1):
+            self.qc.h(i)
+
+        if constant_or_balanced == 0:
+            self.__constant_oracle(constant_value)
+        else:
+            self.__balanced_oracle(random_bits)
+
+        for i in range(n):
+            self.qc.h(i)
+
+        for i in range(n):
+            self.qc.measure(i)
+
+        self.qc.draw()
+        print("Classical Bits: ", self.qc.classical_bits[:-1])

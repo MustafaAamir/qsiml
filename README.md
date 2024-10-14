@@ -82,13 +82,14 @@ qc = QuantumCircuit(n)  # Creates a circuit with `n` qubits
 Measure all qubits, collapsing the state vector:
 
 ```python
-result = qc.measure_all() # collapses the state vector to a single basis state
+result = qc.measure_all() # collapses the state vector to a single basis states
+# returns a bitstring of the basis state and stores the collapsed state in qc.classical_bits
 ```
 
 Measure a specific qubit, partially collapsing the state vector.
 
 ```python
-qc.measure(qubit)
+qc.measure(qubit) # classical state of qn is stored in qc.classical_bits[n]
 ```
 
 ## Circuit Visualization
@@ -123,12 +124,12 @@ Circuit Visualization
                     │
 |q4⟩————————————————⨁—
 ```
+
 ```python
 qc.operations("Operations: ")
-
 ```
 prints the gates applied with respect to time:
-
+```
   Operations:
     1. X on qubit 0
     2. H on qubit 1
@@ -137,6 +138,7 @@ prints the gates applied with respect to time:
     5. CCNOT on qubits 1, 2, 3
     6. CCNOT on qubits 2, 3, 4
 ```
+
 ```python
 print(qc.circuit)
 ```
@@ -145,15 +147,17 @@ prints the internal circuit representation
 
 [('X', [0]), ('H', [1]), ('H', [2]), ('H', [3]), ('CCNOT', [1, 2, 3]), ('CCNOT', [2, 3, 4])]
 ```
+
 ## State Inspection
 
 View the circuit's state without collapsing it.
 
 ```python
 qc.dump("Dump table: ")
+```
 
-"""
 prints a table which shows the amplitude, probability, and phase of each possible basis state.
+```
 Dump Table:
 +---------------+---------------+----------------------+---------+
 | Basis State   | Probability   | Amplitude            |   Phase |
@@ -167,7 +171,6 @@ Dump Table:
 | |11101⟩       | 12.500000%    | 0.353553 + 0.000000i |       0 |
 | |11111⟩       | 12.500000%    | 0.353553 + 0.000000i |       0 |
 +---------------+---------------+----------------------+---------+
-"""
 ```
 
 ## Examples
@@ -207,8 +210,8 @@ qc.phase(1, np.pi/2)
 qc.cnot(0, 1)
 qc.h(1)
 qc.swap(0, 1)
-qc.draw()
-qc.dump()
+qc.draw("Draw: ")
+qc.dump("Dump: ")
 ```
 
 ```
@@ -217,9 +220,7 @@ Draw:
 |q0⟩—H—————————————●—————x—
                    │     │
 |q1⟩————-P(1.5707)—⨁——H——x—
-```
 
-```
 Dump:
 
 +---------------+---------------+-----------------------+---------+
@@ -231,8 +232,6 @@ Dump:
 | |11⟩          | 31.250000%    | -0.250000 + 0.500000i | 2.03444 |
 +---------------+---------------+-----------------------+---------+
 ```
-
-TODO: ADD DIAGRAM AND DUMP
 
 ### Theory for nerds
 
@@ -290,7 +289,7 @@ Finally, we measure the query qubits individually
 for i in range(n):
     qc.measure(i)
 ```
-Though there's no `ClassicalRegister` to store the measured values in, the draw function can be utilized. If all measured values are 0, then the oracle is a constant function. Anything other than that, the oracle is a balanced function.
+The measured values of the nth qubit are stored in `qc.classical_bits[n]`. If all measured values are 0, i.e. `qc.classical_bits[0..n]`, then the oracle is a constant function. Anything other than that, the oracle is a balanced function.
 
 Now that a balanced oracle function has been implemented, we can implement a constant oracle.
 
@@ -298,39 +297,49 @@ Now that a balanced oracle function has been implemented, we can implement a con
 from qsiml import QuantumCircuit
 import numpy as np
 
-def constant_oracle(constant_value: int):
-    if constant_value == 0:
-        qc.i(n)
-    else:
-        qc.px(n)
+class DeutschJozsa():
+    def __init__(self, n: int = 10):
+        self.qc = QuantumCircuit(n + 1)
+        self.n = n
 
-def balanced_oracle(random_bits: int):
-    for i in range(n):
-        if random_bits & (1 << i):
-            qc.cnot(i, n)
+    def constant_oracle(self, constant_value: int):
+        if constant_value == 0:
+            self.qc.i(self.n)
+        else:
+            self.qc.px(self.n)
 
-def deutsch_jozsa():
-    constant_or_balanced = np.random.randint(0, 2)
-    constant_value = np.random.randint(0, 2)
-    random_bits = np.random.randint(1, 2**n)
+    def balanced_oracle(self, random_bits: int):
+        for i in range(self.n):
+            if random_bits & (1 << i):
+                self.qc.cnot(i, self.n)
 
-    qc.px(n)
-    for i in range(n + 1):
-        qc.h(i)
+    def deutsch_jozsa(self):
+        n = self.n
+        constant_or_balanced = np.random.randint(0, 2)
+        constant_value = np.random.randint(0, 2)
+        random_bits = np.random.randint(1, 2**n)
 
-    if constant_or_balanced == 0:
-        constant_oracle(constant_value)
-    else:
-        balanced_oracle(random_bits)
+        self.qc.px(n)
+        for i in range(n + 1):
+            self.qc.h(i)
 
-    for i in range(n):
-        qc.h(i)
+        if constant_or_balanced == 0:
+            self.constant_oracle(constant_value)
+        else:
+            self.balanced_oracle(random_bits)
 
-    for i in range(n):
-        qc.measure(i)
+        for i in range(n):
+            self.qc.h(i)
+
+        for i in range(n):
+            self.qc.measure(i)
 
 
-    qc.draw()
+        self.qc.draw()
+        print("Classical Bits: ", self.qc.classical_bits[:-1])
+
+dj = DeutschJozsa(10)
+dj.deutsch_jozsa()
 ```
 
 returns this for a constant oracle (Notice how every measured value is 0):
@@ -356,6 +365,8 @@ returns this for a constant oracle (Notice how every measured value is 0):
 |q09⟩————————————————————————————H——————————————————————————————————————H—————————————————————————————M—
                                                                                                       0
 |q10⟩———————————————————————————————X——H——X—————————————————————————————————————————————————————————————
+
+Classical Bits: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 ```
 
 And this for a balanced oracle (The measured values form a non-zero bitstring)
@@ -381,8 +392,14 @@ And this for a balanced oracle (The measured values form a non-zero bitstring)
 |q09⟩————————————————————————————H————————│——│——│——│——●—————————————————————————————H—————————————————————————————M—
                                           │  │  │  │  │                                                           1
 |q10⟩———————————————————————————————X——H——⨁——⨁——⨁——⨁——⨁—————————————————————————————————————————————————————————————
-```
 
+Classical Bits: [0, 1, 0, 0, 0, 0, 1, 1, 1, 1]
+```
+You can import this class using:
+
+```python
+from qsiml import Deutsch_Jozsa
+```
 
 ### State Vector Representation
 
