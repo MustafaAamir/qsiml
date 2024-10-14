@@ -398,7 +398,7 @@ Classical Bits: [0, 1, 0, 0, 0, 0, 1, 1, 1, 1]
 You can import this class using:
 
 ```python
-from qsiml import Deutsch_Jozsa
+from qsiml import DeutschJozsa
 ```
 
 ### State Vector Representation
