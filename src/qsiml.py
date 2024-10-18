@@ -23,7 +23,7 @@ def _check_distinct(args: List[int]):
 def _check_n(n: int):
     if n > 30:
         raise ValueError(
-                f"Currently, Qsiml supports circuits with < 31 qubits. {n} > 30."
+                f"Qsiml supports circuits with <31 qubits. {n} > 30."
                 )
 
 
@@ -895,3 +895,6 @@ class DeutschJozsa:
 
         self.qc.draw()
         print("Classical Bits: ", self.qc.classical_bits[:-1])
+
+
+qc = QuantumCircuit(31)
