@@ -20,6 +20,12 @@ def _check_distinct(args: List[int]):
     if len(args) != len(set(args)):
         raise ValueError("Arguments to need to be distinct")
 
+def _check_n(n: int):
+    if n > 30:
+        raise ValueError(
+                f"Currently, Qsiml supports circuits with < 31 qubits. {n} > 30."
+                )
+
 
 class Qubit:
     def __init__(self):
@@ -43,6 +49,7 @@ class QuantumCircuit:
     """
 
     def __init__(self, n: int = 1):
+        _check_n(n)
         self.qubits: List[Qubit] = [Qubit() for _ in range(n)]
         # Stores the collapsed state of the nth qubit at index n
         self.classical_bits: List[int | None] = [ClassicalBit().bit for _ in range(n)]
