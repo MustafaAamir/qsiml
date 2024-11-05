@@ -1,4 +1,4 @@
-# Qsiml: A Quantum Computing Simulator
+![image](https://github.com/user-attachments/assets/80a3a50c-1268-4b34-9053-edb0f06ccb12)
 
 Qsiml is a Python-based quantum computing simulator that provides a minimalist approach to quantum circuit simulation.
 
