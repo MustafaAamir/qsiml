@@ -895,6 +895,3 @@ class DeutschJozsa:
 
         self.qc.draw()
         print("Classical Bits: ", self.qc.classical_bits[:-1])
-
-
-qc = QuantumCircuit(31)
