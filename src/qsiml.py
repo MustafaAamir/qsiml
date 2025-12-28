@@ -2,11 +2,9 @@ from typing import List, Tuple
 from tabulate import tabulate
 import numpy as np
 
-COMPLEX_ZERO = complex(0)
-COMPLEX_ONE = complex(1)
-INITIAL_STATE = [COMPLEX_ONE, COMPLEX_ZERO]
+INITIAL_STATE = [complex(1), complex(0)]
 ZERO_STATE = INITIAL_STATE
-ONE_STATE = [COMPLEX_ZERO, COMPLEX_ONE]
+ONE_STATE = [complex(0), complex(1)]
 
 # Gate Constants
 H_GATE = np.array([[1, 1], [1, -1]], dtype=complex) / np.sqrt(2)
@@ -69,258 +67,17 @@ class QuantumCircuit:
         n (int, optional): The number of qubits in the circuit. Defaults to 1.
     """
 
-class VectorBackend:
-    def __init__(self, n_qubits):
-        self.n = n_qubits
-        # State tensor axis i corresponds to qubit (n - 1 - i)
-        self.state_tensor = np.zeros((2,) * n_qubits, dtype=complex)
-        self.state_tensor[(0,) * n_qubits] = 1.0 + 0j
-
-    @property
-    def state_vector(self):
-        return self.state_tensor.flatten()
-    
-    @state_vector.setter
-    def state_vector(self, value):
-        self.state_tensor = value.reshape((2,) * self.n)
-
-    def apply_gate(self, gate: np.ndarray, targets: List[int]):
-        k = len(targets)
-        target_axes = [self.n - 1 - t for t in targets]
-        gate_input_axes = list(range(k, 2 * k))
-        new_state = np.tensordot(gate, self.state_tensor, axes=(gate_input_axes, target_axes))
-        
-        target_q_to_current_axis = {q: i for i, q in enumerate(targets)}
-        non_target_q_descending = sorted([q for q in range(self.n) if q not in targets], reverse=True)
-        non_target_q_to_current_axis = {q: k + i for i, q in enumerate(non_target_q_descending)}
-        
-        perm = []
-        for j in range(self.n):
-            q = self.n - 1 - j
-            if q in target_q_to_current_axis:
-                perm.append(target_q_to_current_axis[q])
-            else:
-                perm.append(non_target_q_to_current_axis[q])
-        self.state_tensor = np.transpose(new_state, perm)
-
-    def measure(self, qubit):
-        axis = self.n - 1 - qubit
-        # Calculate prob of 1
-        # Move axis to 0
-        psi = np.moveaxis(self.state_tensor, axis, 0)
-        prob_1 = np.sum(np.abs(psi[1])**2)
-        
-        outcome = 1 if np.random.random() < prob_1 else 0
-        
-        # Collapse
-        other = 1 - outcome
-        idx = [slice(None)] * self.n
-        idx[axis] = other
-        self.state_tensor[tuple(idx)] = 0
-        
-        norm = np.linalg.norm(self.state_tensor)
-        if norm > 1e-12:
-            self.state_tensor /= norm
-            
-        return outcome
-
-class MPSBackend:
-    def __init__(self, n_qubits, max_bond_dim=32):
-        self.n = n_qubits
-        self.chi = max_bond_dim
-        # Tensors Gamma[i] of shape (chi_left, 2, chi_right)
-        # For i=0: (1, 2, chi) [actually (1, 2, 1) initially]
-        self.tensors = []
-        for i in range(n_qubits):
-            # Init to |0> state: [1, 0]
-            # Shape (1, 2, 1)
-            T = np.zeros((1, 2, 1), dtype=complex)
-            T[0, 0, 0] = 1.0
-            self.tensors.append(T)
-
-    @property
-    def state_vector(self):
-        # Contract all tensors to get full vector
-        # This is expensive O(2^N), only for debug/small N
-        if self.n > 20: 
-            raise MemoryError("State vector too large for MPS conversion")
-        
-        C = self.tensors[0] # (1, 2, chi)
-        for i in range(1, self.n):
-            # Contract C (..., chi) with T[i] (chi, 2, chi_next)
-            # Result (..., 2, chi_next) -> flatten later
-            C = np.tensordot(C, self.tensors[i], axes=(-1, 0)) 
-            # C shape: (1, 2, ..., 2, 1)
-            
-        return C.flatten()
-
-    def apply_gate(self, gate: np.ndarray, targets: List[int]):
-        if len(targets) == 1:
-            self._apply_1q(gate, targets[0])
-        elif len(targets) == 2:
-            q1, q2 = targets
-            if abs(q1 - q2) == 1:
-                self._apply_2q_adjacent(gate, min(q1, q2))
-            else:
-                 # Check if gate is SWAP (special case optimized?)
-                 # For now, simplistic SWAP chain or error
-                 # But we must support general gates.
-                 raise NotImplementedError("Non-adjacent gates not yet supported in MPS (SWAP chain required)")
-        else:
-            raise NotImplementedError("Multi-qubit gates > 2 not supported in MPS")
-
-    def _apply_1q(self, gate, q):
-        # gate shape (2, 2)
-        # tensor shape (chi_l, 2, chi_r)
-        # Contract gate[out, in] * T[l, in, r] -> R[out, l, r] -> transpose to [l, out, r]
-        T = self.tensors[q]
-        # tensordot axes: gate(1) with T(1)
-        res = np.tensordot(gate, T, axes=(1, 1)) # (out, l, r)
-        self.tensors[q] = np.transpose(res, (1, 0, 2))
-
-    def _apply_2q_adjacent(self, gate, q):
-        # Apply to q, q+1
-        # gate is (2, 2, 2, 2) - [out1, out2, in1, in2] 
-        # (Be careful with gate shape conventions from qsiml constants)
-        # Standard constants like CNOT_GATE are (out_c, out_t, in_c, in_t) if we view them as matrix ops
-        # In VectorBackend we reshaped them. 
-        # Let's verify shape: CNOT_GATE was reshaped(2, 2, 2, 2).
-        # Target indices are (output_control, output_target, input_control, input_target)
-        
-        # 1. Contract T[q] and T[q+1]
-        # T[q]: (chi_l, 2, chi_mid)
-        # T[q+1]: (chi_mid, 2, chi_r)
-        # Contract on chi_mid -> theta: (chi_l, 2(q), 2(q+1), chi_r)
-        T1 = self.tensors[q]
-        T2 = self.tensors[q+1]
-        
-        theta = np.tensordot(T1, T2, axes=(2, 0)) # (chi_l, 2, 2, chi_r)
-        
-        # 2. Apply Gate
-        # Gate: (out_q, out_qp1, in_q, in_qp1)
-        # Contract gate inputs with theta inputs
-        # gate axes (2, 3) match theta axes (1, 2)
-        theta_prime = np.tensordot(gate, theta, axes=([2, 3], [1, 2])) # (out_q, out_qp1, chi_l, chi_r)
-        
-        # Transpose to (chi_l, out_q, out_qp1, chi_r)
-        theta_prime = np.transpose(theta_prime, (2, 0, 1, 3))
-        
-        # 3. SVD and Truncate
-        # Reshape to Matrix: (chi_l * 2) x (2 * chi_r)
-        chi_l = T1.shape[0]
-        chi_r = T2.shape[2]
-        M = theta_prime.reshape(chi_l * 2, 2 * chi_r)
-        
-        U, S, Vh = np.linalg.svd(M, full_matrices=False)
-        
-        # Truncate
-        rank = len(S)
-        keep = min(rank, self.chi)
-        # Also trim small singular values?
-        keep = min(keep, np.count_nonzero(S > 1e-12))
-        if keep < 1: keep = 1
-        
-        U = U[:, :keep]
-        S = S[:keep]
-        Vh = Vh[:keep, :]
-        
-        # 4. Reshape back
-        # U: (chi_l * 2, keep) -> (chi_l, 2, keep)
-        # Vh: (keep, 2 * chi_r) -> SVh = diag(S) @ Vh -> (keep, 2 * chi_r) -> (keep, 2, chi_r)
-        
-        self.tensors[q] = U.reshape(chi_l, 2, keep)
-        # Absorb S into V or U. Typically split sqrts or put in one. 
-        # Standard: put S into right tensor (canonical form shift) or keep center.
-        # Here we put it into right.
-        self.tensors[q+1] = (np.diag(S) @ Vh).reshape(keep, 2, chi_r)
-
-    def measure(self, qubit):
-        # Calculate Probability of 1: <psi| P1 |psi>
-        # We can implement this by temporarily applying P1 to the tensor at 'qubit' and calculating norm squared.
-        
-        # P1 operator
-        P1 = np.array([[0, 0], [0, 1]], dtype=complex)
-        P0 = np.array([[1, 0], [0, 0]], dtype=complex)
-        
-        # Create a copy of the tensor at qubit with P1 applied
-        # T[q] shape (chi_l, 2, chi_r) -> contract with P1(out, in)
-        # P1 is diagonal, so just zero out the 0-index of middle dimension.
-        T_orig = self.tensors[qubit]
-        T_1 = np.zeros_like(T_orig)
-        T_1[:, 1, :] = T_orig[:, 1, :]
-        
-        # Calculate norm squared of state with T_1 at qubit
-        norm_sq_1 = self._calc_norm_sq(self.tensors[:qubit] + [T_1] + self.tensors[qubit+1:])
-        
-        prob_1 = norm_sq_1.real # Should be real
-        
-        outcome = 1 if np.random.random() < prob_1 else 0
-        
-        # Collapse
-        if outcome == 1:
-            self.tensors[qubit] = T_1
-            current_norm = np.sqrt(norm_sq_1)
-        else:
-            T_0 = np.zeros_like(T_orig)
-            T_0[:, 0, :] = T_orig[:, 0, :]
-            self.tensors[qubit] = T_0
-            # Need to calc norm 0 to renormalize accurately, or just 1-prob?
-            # Better to calc norm 0 from state to be safe against precision errors
-            norm_sq_0 = self._calc_norm_sq(self.tensors)
-            current_norm = np.sqrt(norm_sq_0)
-            
-        if current_norm > 1e-12:
-            self.tensors[qubit] /= current_norm
-            
-        return outcome
-
-    def _calc_norm_sq(self, tensors):
-        # Contract ladder <psi|psi>
-        # Left boundary
-        # E (chi, chi)
-        # Init E as 1x1 identity (1,)
-        E = np.ones((1, 1), dtype=complex)
-        
-        for T in tensors:
-            # T shape (chi_l, 2, chi_r)
-            # Contract E with T and T*
-            # E_new[r, r'] = sum_{l, l', s} E[l, l'] * T[l, s, r] * conj(T[l', s, r'])
-            
-            # Step 1: Contract E with T -> M[l', s, r] = sum_l E[l, l'] * T[l, s, r] ??
-            # Wait, E indices are (l_ket, l_bra).
-            # T indices (l_ket, s, r_ket).
-            # T* indices (l_bra, s, r_bra).
-            
-            # tensordot E(l, l') with T(l, s, r) at axis 0 (l)
-            # Result: (l', s, r) (indices: l_bra, phys, r_ket)
-            
-            # Actually E shape: (chi_ket, chi_bra)
-            # T: (chi_l, 2, chi_r)
-            
-            # M = np.tensordot(E, T, axes=(0, 0)) # sum over chi_ket
-            # M shape: (chi_bra, 2, chi_r)
-            
-            # Now contract with T* (chi_bra, 2, chi_r)
-            # Contract M(l', s, r) with conj(T)(l', s, r') over (l', s)
-            # M axes 0, 1. T* axes 0, 1.
-            
-            M = np.tensordot(E, T, axes=(0, 0))
-            E = np.tensordot(M, T.conj(), axes=([0, 1], [0, 1])) # Result (r, r')
-            
-        return E[0, 0]
-
-class QuantumCircuit:
-    def __init__(self, n: int = 1, backend: str = 'vector', max_bond_dim: int = 32):
+    def __init__(self, n: int = 1):
         _check_n(n)
-        if backend == 'vector':
-            self._backend = VectorBackend(n)
-        elif backend == 'mps':
-            self._backend = MPSBackend(n, max_bond_dim)
-        else:
-            raise ValueError(f"Unknown backend: {backend}")
-            
         self.qubits_count = n
         self.classical_bits: List[int | None] = [None] * n
+        
+        # Initialize state |0...0>
+        # Represent state as a tensor of shape (2, 2, ..., 2)
+        # Axis i corresponds to qubit (n - 1 - i)
+        # i.e., Axis 0 is q(n-1), Axis n-1 is q0.
+        self._state_tensor = np.zeros((2,) * n, dtype=complex)
+        self._state_tensor[(0,) * n] = 1.0 + 0j
         
         # Legacy/Drawing support
         self.qubits: List[Qubit] = [Qubit() for _ in range(n)] 
@@ -332,24 +89,54 @@ class QuantumCircuit:
 
     @property
     def state_vector(self):
-        return self._backend.state_vector
+        return self._state_tensor.flatten()
         
     @state_vector.setter
     def state_vector(self, value):
-        if hasattr(self._backend, 'state_tensor'):
-             self._backend.state_vector = value
-        else:
-             raise NotImplementedError("Setting state vector directly not supported for this backend")
-
+        self._state_tensor = value.reshape((2,) * self.qubits_count)
+    
     def _apply_gate(self, gate: np.ndarray, targets: List[int]):
-        self._backend.apply_gate(gate, targets)
+        n = self.qubits_count
+        k = len(targets)
+        target_axes = [n - 1 - t for t in targets]
+        gate_input_axes = list(range(k, 2 * k))
+        new_state = np.tensordot(gate, self._state_tensor, axes=(gate_input_axes, target_axes))
         
+        target_q_to_current_axis = {q: i for i, q in enumerate(targets)}
+        non_target_q_descending = sorted([q for q in range(n) if q not in targets], reverse=True)
+        non_target_q_to_current_axis = {q: k + i for i, q in enumerate(non_target_q_descending)}
+        
+        perm = []
+        for j in range(n):
+            q = n - 1 - j
+            if q in target_q_to_current_axis:
+                perm.append(target_q_to_current_axis[q])
+            else:
+                perm.append(non_target_q_to_current_axis[q])
+        self._state_tensor = np.transpose(new_state, perm)
+
     def measure(self, i: int):
         _check_index(i, self.qubits_count)
         self.circuit.append(("M", [i]))
         self.__measures_in.append(i)
         
-        outcome = self._backend.measure(i)
+        axis = self.qubits_count - 1 - i
+        # Calculate prob of 1
+        # Move axis to 0
+        psi = np.moveaxis(self._state_tensor, axis, 0)
+        prob_1 = np.sum(np.abs(psi[1])**2)
+        
+        outcome = 1 if np.random.random() < prob_1 else 0
+        
+        # Collapse
+        other = 1 - outcome
+        idx = [slice(None)] * self.qubits_count
+        idx[axis] = other
+        self._state_tensor[tuple(idx)] = 0
+        
+        norm = np.linalg.norm(self._state_tensor)
+        if norm > 1e-12:
+            self._state_tensor /= norm
         
         self.__measures.append(outcome)
         self.classical_bits[i] = outcome
@@ -357,10 +144,46 @@ class QuantumCircuit:
 
     def reset(self, i: int):
         _check_index(i, self.qubits_count)
-        outcome = self._backend.measure(i)
+        # Cannot reuse measure easily without appending to circuit log, so simpler logic here?
+        # Re-implement collapse logic without logging measure, or just call measure but remove log?
+        # The user's code expects reset to be functional.
+        
+        # Let's peek at the state to decide
+        axis = self.qubits_count - 1 - i
+        psi = np.moveaxis(self._state_tensor, axis, 0)
+        prob_1 = np.sum(np.abs(psi[1])**2)
+        outcome = 1 if np.random.random() < prob_1 else 0
+        
+        # Collapse
+        other = 1 - outcome
+        idx = [slice(None)] * self.qubits_count
+        idx[axis] = other
+        self._state_tensor[tuple(idx)] = 0
+        
+        norm = np.linalg.norm(self._state_tensor)
+        if norm > 1e-12:
+            self._state_tensor /= norm
+            
         if outcome == 1:
-             self._apply_gate(X_GATE, [i])
-        self.qubits[i].states = INITIAL_STATE
+            self._apply_gate(X_GATE, [i])
+            
+        self.qubits[i].states = INITIAL_STATE 
+
+    def measure_all(self):
+        probs = np.abs(self.state_vector) ** 2
+        probs /= np.sum(probs)
+        basis_state = np.random.choice(2**self.qubits_count, p=probs)
+        
+        # Collapse state
+        new_state = np.zeros_like(self.state_vector)
+        new_state[basis_state] = 1.0
+        self.state_vector = new_state
+        
+        # Update classical bits
+        for i in range(self.qubits_count):
+            self.classical_bits[i] = (basis_state >> i) & 1
+            
+        return bin(basis_state)[2:]
 
 
     def theta_que(self, theta):
@@ -387,7 +210,6 @@ class QuantumCircuit:
         for gate_name, args in gates:
             gate_func = getattr(self, gate_name.lower())
             if gate_name.lower() in ["rx", "ry", "rz", "phase", "p"]:
-                # args[0] is qubit, args[1] is theta
                 gate_func(int(args[0]), float(args[1]))
             elif gate_name.lower() in ["cnot", "swap"]:
                 gate_func(int(args[0]), int(args[1]))
@@ -504,17 +326,6 @@ class QuantumCircuit:
         self._apply_gate(CCNOT_GATE, [i, j, k])
         return self
 
-    def reset(self, i: int):
-        _check_index(i, self.qubits_count)
-        # Measure and flip if 1
-        prob_1 = self._get_prob_one(i)
-        outcome = 1 if np.random.random() < prob_1 else 0
-        self._collapse(i, outcome)
-        if outcome == 1:
-            self._apply_gate(X_GATE, [i])
-        # Note: Original code did not add RESET to circuit list, so we don't either.
-        self.qubits[i].states = INITIAL_STATE # Legacy update
-
     def reset_all(self):
         self.qubits = [Qubit() for _ in range(self.qubits_count)]
         self.circuit = []
@@ -522,7 +333,6 @@ class QuantumCircuit:
         self.__measures = []
         self.__measures_in = []
         self.len_of_thetas = 0
-        # Reset state
         self._state_tensor = np.zeros((2,) * self.qubits_count, dtype=complex)
         self._state_tensor[(0,) * self.qubits_count] = 1.0 + 0j
 
@@ -549,58 +359,6 @@ class QuantumCircuit:
         print(output_str)
         print("\t\tDumpMachine();")
         print("\t\tResetAll(qs);")
-
-    def _get_prob_one(self, qubit):
-        # Axis corresponding to qubit is (n - 1 - qubit)
-        axis = self.qubits_count - 1 - qubit
-        # Move axis to 0
-        psi = np.moveaxis(self._state_tensor, axis, 0)
-        # psi[1, ...] are amplitudes where qubit=1
-        return np.sum(np.abs(psi[1])**2)
-
-    def _collapse(self, qubit, outcome):
-        axis = self.qubits_count - 1 - qubit
-        # Zero out the other outcome
-        other = 1 - outcome
-        idx = [slice(None)] * self.qubits_count
-        idx[axis] = other
-        self._state_tensor[tuple(idx)] = 0
-        
-        # Normalize
-        norm = np.linalg.norm(self._state_tensor)
-        if norm > 1e-12:
-            self._state_tensor /= norm
-
-    def measure(self, i: int):
-        _check_index(i, self.qubits_count)
-        self.circuit.append(("M", [i]))
-        self.__measures_in.append(i)
-        
-        prob_1 = self._get_prob_one(i)
-        outcome = 1 if np.random.random() < prob_1 else 0
-        
-        self._collapse(i, outcome)
-        self.__measures.append(outcome)
-        self.classical_bits[i] = outcome
-        return outcome
-
-    def measure_all(self):
-        probs = np.abs(self.state_vector) ** 2
-        probs /= np.sum(probs)
-        basis_state = np.random.choice(2**self.qubits_count, p=probs)
-        
-        # Collapse state
-        new_state = np.zeros_like(self.state_vector)
-        new_state[basis_state] = 1.0
-        self.state_vector = new_state
-        
-        # Update classical bits
-        # basis_state corresponds to bin string where q0 is LSB.
-        # classical_bits[i] = bit at qi
-        for i in range(self.qubits_count):
-            self.classical_bits[i] = (basis_state >> i) & 1
-            
-        return bin(basis_state)[2:]
 
     def dump(self, msg: str = "", format_: str = "outline"):
         formats = [
@@ -752,7 +510,3 @@ class DeutschJozsa:
 
         self.qc.draw()
         print("Classical Bits: ", self.qc.classical_bits[:-1])
-
-
-qc = QuantumCircuit(10).h(9).px(0).h(1)
-print(qc.measure(1))
