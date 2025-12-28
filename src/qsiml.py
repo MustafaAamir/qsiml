@@ -8,6 +8,27 @@ INITIAL_STATE = [COMPLEX_ONE, COMPLEX_ZERO]
 ZERO_STATE = INITIAL_STATE
 ONE_STATE = [COMPLEX_ZERO, COMPLEX_ONE]
 
+# Gate Constants
+H_GATE = np.array([[1, 1], [1, -1]], dtype=complex) / np.sqrt(2)
+X_GATE = np.array([[0, 1], [1, 0]], dtype=complex)
+Y_GATE = np.array([[0, -1j], [1j, 0]], dtype=complex)
+Z_GATE = np.array([[1, 0], [0, -1]], dtype=complex)
+I_GATE = np.array([[1, 0], [0, 1]], dtype=complex)
+# SWAP and CNOT reshaped for tensordot
+# Target indices are (output_control, output_target, input_control, input_target)
+SWAP_GATE = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]], dtype=complex).reshape(2, 2, 2, 2)
+CNOT_GATE = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]], dtype=complex).reshape(2, 2, 2, 2)
+CCNOT_GATE = np.eye(8, dtype=complex)
+CCNOT_GATE[6:, 6:] = [[0, 1], [1, 0]]
+CCNOT_GATE = CCNOT_GATE.reshape(2, 2, 2, 2, 2, 2)
+CSWAP_GATE = np.eye(8, dtype=complex)
+CSWAP_GATE[5, 5] = 0
+CSWAP_GATE[5, 6] = 1
+CSWAP_GATE[6, 5] = 1
+CSWAP_GATE[6, 6] = 0
+CSWAP_GATE = CSWAP_GATE.reshape(2, 2, 2, 2, 2, 2)
+
+
 
 def _check_index(i, qubits_count: int):
     if i < 0 or i > qubits_count - 1:
@@ -48,66 +69,299 @@ class QuantumCircuit:
         n (int, optional): The number of qubits in the circuit. Defaults to 1.
     """
 
-    def __init__(self, n: int = 1):
+class VectorBackend:
+    def __init__(self, n_qubits):
+        self.n = n_qubits
+        # State tensor axis i corresponds to qubit (n - 1 - i)
+        self.state_tensor = np.zeros((2,) * n_qubits, dtype=complex)
+        self.state_tensor[(0,) * n_qubits] = 1.0 + 0j
+
+    @property
+    def state_vector(self):
+        return self.state_tensor.flatten()
+    
+    @state_vector.setter
+    def state_vector(self, value):
+        self.state_tensor = value.reshape((2,) * self.n)
+
+    def apply_gate(self, gate: np.ndarray, targets: List[int]):
+        k = len(targets)
+        target_axes = [self.n - 1 - t for t in targets]
+        gate_input_axes = list(range(k, 2 * k))
+        new_state = np.tensordot(gate, self.state_tensor, axes=(gate_input_axes, target_axes))
+        
+        target_q_to_current_axis = {q: i for i, q in enumerate(targets)}
+        non_target_q_descending = sorted([q for q in range(self.n) if q not in targets], reverse=True)
+        non_target_q_to_current_axis = {q: k + i for i, q in enumerate(non_target_q_descending)}
+        
+        perm = []
+        for j in range(self.n):
+            q = self.n - 1 - j
+            if q in target_q_to_current_axis:
+                perm.append(target_q_to_current_axis[q])
+            else:
+                perm.append(non_target_q_to_current_axis[q])
+        self.state_tensor = np.transpose(new_state, perm)
+
+    def measure(self, qubit):
+        axis = self.n - 1 - qubit
+        # Calculate prob of 1
+        # Move axis to 0
+        psi = np.moveaxis(self.state_tensor, axis, 0)
+        prob_1 = np.sum(np.abs(psi[1])**2)
+        
+        outcome = 1 if np.random.random() < prob_1 else 0
+        
+        # Collapse
+        other = 1 - outcome
+        idx = [slice(None)] * self.n
+        idx[axis] = other
+        self.state_tensor[tuple(idx)] = 0
+        
+        norm = np.linalg.norm(self.state_tensor)
+        if norm > 1e-12:
+            self.state_tensor /= norm
+            
+        return outcome
+
+class MPSBackend:
+    def __init__(self, n_qubits, max_bond_dim=32):
+        self.n = n_qubits
+        self.chi = max_bond_dim
+        # Tensors Gamma[i] of shape (chi_left, 2, chi_right)
+        # For i=0: (1, 2, chi) [actually (1, 2, 1) initially]
+        self.tensors = []
+        for i in range(n_qubits):
+            # Init to |0> state: [1, 0]
+            # Shape (1, 2, 1)
+            T = np.zeros((1, 2, 1), dtype=complex)
+            T[0, 0, 0] = 1.0
+            self.tensors.append(T)
+
+    @property
+    def state_vector(self):
+        # Contract all tensors to get full vector
+        # This is expensive O(2^N), only for debug/small N
+        if self.n > 20: 
+            raise MemoryError("State vector too large for MPS conversion")
+        
+        C = self.tensors[0] # (1, 2, chi)
+        for i in range(1, self.n):
+            # Contract C (..., chi) with T[i] (chi, 2, chi_next)
+            # Result (..., 2, chi_next) -> flatten later
+            C = np.tensordot(C, self.tensors[i], axes=(-1, 0)) 
+            # C shape: (1, 2, ..., 2, 1)
+            
+        return C.flatten()
+
+    def apply_gate(self, gate: np.ndarray, targets: List[int]):
+        if len(targets) == 1:
+            self._apply_1q(gate, targets[0])
+        elif len(targets) == 2:
+            q1, q2 = targets
+            if abs(q1 - q2) == 1:
+                self._apply_2q_adjacent(gate, min(q1, q2))
+            else:
+                 # Check if gate is SWAP (special case optimized?)
+                 # For now, simplistic SWAP chain or error
+                 # But we must support general gates.
+                 raise NotImplementedError("Non-adjacent gates not yet supported in MPS (SWAP chain required)")
+        else:
+            raise NotImplementedError("Multi-qubit gates > 2 not supported in MPS")
+
+    def _apply_1q(self, gate, q):
+        # gate shape (2, 2)
+        # tensor shape (chi_l, 2, chi_r)
+        # Contract gate[out, in] * T[l, in, r] -> R[out, l, r] -> transpose to [l, out, r]
+        T = self.tensors[q]
+        # tensordot axes: gate(1) with T(1)
+        res = np.tensordot(gate, T, axes=(1, 1)) # (out, l, r)
+        self.tensors[q] = np.transpose(res, (1, 0, 2))
+
+    def _apply_2q_adjacent(self, gate, q):
+        # Apply to q, q+1
+        # gate is (2, 2, 2, 2) - [out1, out2, in1, in2] 
+        # (Be careful with gate shape conventions from qsiml constants)
+        # Standard constants like CNOT_GATE are (out_c, out_t, in_c, in_t) if we view them as matrix ops
+        # In VectorBackend we reshaped them. 
+        # Let's verify shape: CNOT_GATE was reshaped(2, 2, 2, 2).
+        # Target indices are (output_control, output_target, input_control, input_target)
+        
+        # 1. Contract T[q] and T[q+1]
+        # T[q]: (chi_l, 2, chi_mid)
+        # T[q+1]: (chi_mid, 2, chi_r)
+        # Contract on chi_mid -> theta: (chi_l, 2(q), 2(q+1), chi_r)
+        T1 = self.tensors[q]
+        T2 = self.tensors[q+1]
+        
+        theta = np.tensordot(T1, T2, axes=(2, 0)) # (chi_l, 2, 2, chi_r)
+        
+        # 2. Apply Gate
+        # Gate: (out_q, out_qp1, in_q, in_qp1)
+        # Contract gate inputs with theta inputs
+        # gate axes (2, 3) match theta axes (1, 2)
+        theta_prime = np.tensordot(gate, theta, axes=([2, 3], [1, 2])) # (out_q, out_qp1, chi_l, chi_r)
+        
+        # Transpose to (chi_l, out_q, out_qp1, chi_r)
+        theta_prime = np.transpose(theta_prime, (2, 0, 1, 3))
+        
+        # 3. SVD and Truncate
+        # Reshape to Matrix: (chi_l * 2) x (2 * chi_r)
+        chi_l = T1.shape[0]
+        chi_r = T2.shape[2]
+        M = theta_prime.reshape(chi_l * 2, 2 * chi_r)
+        
+        U, S, Vh = np.linalg.svd(M, full_matrices=False)
+        
+        # Truncate
+        rank = len(S)
+        keep = min(rank, self.chi)
+        # Also trim small singular values?
+        keep = min(keep, np.count_nonzero(S > 1e-12))
+        if keep < 1: keep = 1
+        
+        U = U[:, :keep]
+        S = S[:keep]
+        Vh = Vh[:keep, :]
+        
+        # 4. Reshape back
+        # U: (chi_l * 2, keep) -> (chi_l, 2, keep)
+        # Vh: (keep, 2 * chi_r) -> SVh = diag(S) @ Vh -> (keep, 2 * chi_r) -> (keep, 2, chi_r)
+        
+        self.tensors[q] = U.reshape(chi_l, 2, keep)
+        # Absorb S into V or U. Typically split sqrts or put in one. 
+        # Standard: put S into right tensor (canonical form shift) or keep center.
+        # Here we put it into right.
+        self.tensors[q+1] = (np.diag(S) @ Vh).reshape(keep, 2, chi_r)
+
+    def measure(self, qubit):
+        # Calculate Probability of 1: <psi| P1 |psi>
+        # We can implement this by temporarily applying P1 to the tensor at 'qubit' and calculating norm squared.
+        
+        # P1 operator
+        P1 = np.array([[0, 0], [0, 1]], dtype=complex)
+        P0 = np.array([[1, 0], [0, 0]], dtype=complex)
+        
+        # Create a copy of the tensor at qubit with P1 applied
+        # T[q] shape (chi_l, 2, chi_r) -> contract with P1(out, in)
+        # P1 is diagonal, so just zero out the 0-index of middle dimension.
+        T_orig = self.tensors[qubit]
+        T_1 = np.zeros_like(T_orig)
+        T_1[:, 1, :] = T_orig[:, 1, :]
+        
+        # Calculate norm squared of state with T_1 at qubit
+        norm_sq_1 = self._calc_norm_sq(self.tensors[:qubit] + [T_1] + self.tensors[qubit+1:])
+        
+        prob_1 = norm_sq_1.real # Should be real
+        
+        outcome = 1 if np.random.random() < prob_1 else 0
+        
+        # Collapse
+        if outcome == 1:
+            self.tensors[qubit] = T_1
+            current_norm = np.sqrt(norm_sq_1)
+        else:
+            T_0 = np.zeros_like(T_orig)
+            T_0[:, 0, :] = T_orig[:, 0, :]
+            self.tensors[qubit] = T_0
+            # Need to calc norm 0 to renormalize accurately, or just 1-prob?
+            # Better to calc norm 0 from state to be safe against precision errors
+            norm_sq_0 = self._calc_norm_sq(self.tensors)
+            current_norm = np.sqrt(norm_sq_0)
+            
+        if current_norm > 1e-12:
+            self.tensors[qubit] /= current_norm
+            
+        return outcome
+
+    def _calc_norm_sq(self, tensors):
+        # Contract ladder <psi|psi>
+        # Left boundary
+        # E (chi, chi)
+        # Init E as 1x1 identity (1,)
+        E = np.ones((1, 1), dtype=complex)
+        
+        for T in tensors:
+            # T shape (chi_l, 2, chi_r)
+            # Contract E with T and T*
+            # E_new[r, r'] = sum_{l, l', s} E[l, l'] * T[l, s, r] * conj(T[l', s, r'])
+            
+            # Step 1: Contract E with T -> M[l', s, r] = sum_l E[l, l'] * T[l, s, r] ??
+            # Wait, E indices are (l_ket, l_bra).
+            # T indices (l_ket, s, r_ket).
+            # T* indices (l_bra, s, r_bra).
+            
+            # tensordot E(l, l') with T(l, s, r) at axis 0 (l)
+            # Result: (l', s, r) (indices: l_bra, phys, r_ket)
+            
+            # Actually E shape: (chi_ket, chi_bra)
+            # T: (chi_l, 2, chi_r)
+            
+            # M = np.tensordot(E, T, axes=(0, 0)) # sum over chi_ket
+            # M shape: (chi_bra, 2, chi_r)
+            
+            # Now contract with T* (chi_bra, 2, chi_r)
+            # Contract M(l', s, r) with conj(T)(l', s, r') over (l', s)
+            # M axes 0, 1. T* axes 0, 1.
+            
+            M = np.tensordot(E, T, axes=(0, 0))
+            E = np.tensordot(M, T.conj(), axes=([0, 1], [0, 1])) # Result (r, r')
+            
+        return E[0, 0]
+
+class QuantumCircuit:
+    def __init__(self, n: int = 1, backend: str = 'vector', max_bond_dim: int = 32):
         _check_n(n)
-        self.qubits: List[Qubit] = [Qubit() for _ in range(n)]
-        # Stores the collapsed state of the nth qubit at index n
-        self.classical_bits: List[int | None] = [ClassicalBit().bit for _ in range(n)]
-        self.qubits_count: int = n
-        self.__thetas: List[str] = []
-        # measures contains measured values
-        self.__measures: List[int] = []
-        self.len_of_thetas = 0
-        self.__measures_in: List[int] = []
+        if backend == 'vector':
+            self._backend = VectorBackend(n)
+        elif backend == 'mps':
+            self._backend = MPSBackend(n, max_bond_dim)
+        else:
+            raise ValueError(f"Unknown backend: {backend}")
+            
+        self.qubits_count = n
+        self.classical_bits: List[int | None] = [None] * n
+        
+        # Legacy/Drawing support
+        self.qubits: List[Qubit] = [Qubit() for _ in range(n)] 
         self.circuit: List[Tuple[str, List[int | float]]] = []
-        self.state_vector = np.zeros(2**self.qubits_count, dtype=complex)
-        self.__evaluated: bool = False
+        self.__thetas: List[str] = []
+        self.__measures: List[int] = []
+        self.__measures_in: List[int] = []
+        self.len_of_thetas = 0
 
-    def px(self, i: int):
-        """
-        Apply the Pauli-X gate (NOT gate) to the i-th qubit.
-        The Pauli-X gate flips the state of the qubit, transforming |0⟩ to |1⟩ and vice versa.
+    @property
+    def state_vector(self):
+        return self._backend.state_vector
+        
+    @state_vector.setter
+    def state_vector(self, value):
+        if hasattr(self._backend, 'state_tensor'):
+             self._backend.state_vector = value
+        else:
+             raise NotImplementedError("Setting state vector directly not supported for this backend")
 
-        Args:
-            i (int): The index of the qubit to apply the gate to.
-
-        Raises:
-            IndexError if the index 'i' is out of range
-        """
+    def _apply_gate(self, gate: np.ndarray, targets: List[int]):
+        self._backend.apply_gate(gate, targets)
+        
+    def measure(self, i: int):
         _check_index(i, self.qubits_count)
-        self.circuit.append(("X", [i]))
-        self.__evaluated = False
+        self.circuit.append(("M", [i]))
+        self.__measures_in.append(i)
+        
+        outcome = self._backend.measure(i)
+        
+        self.__measures.append(outcome)
+        self.classical_bits[i] = outcome
+        return outcome
 
-    def py(self, i: int):
-        """
-        Apply the Pauli-Y gate to the i-th qubit.
-        The Pauli-Y gate rotates the qubit state around the Y-axis of the Bloch sphere by π radians.
-
-        Args:
-            i (int): The index of the qubit to apply the gate to.
-
-        Raises:
-            IndexError if the index 'i' is out of range
-        """
+    def reset(self, i: int):
         _check_index(i, self.qubits_count)
-        self.circuit.append(("Y", [i]))
-        self.__evaluated = False
+        outcome = self._backend.measure(i)
+        if outcome == 1:
+             self._apply_gate(X_GATE, [i])
+        self.qubits[i].states = INITIAL_STATE
 
-    def pz(self, i: int):
-        """
-        Apply the Pauli-Z gate to the i-th qubit.
-        The Pauli-Z gate rotates the qubit state around the Z-axis of the Bloch sphere by π radians.
-
-        Args:
-            i (int): The index of the qubit to apply the gate to.
-
-        Raises:
-            IndexError if the index 'i' is out of range
-        """
-
-        _check_index(i, self.qubits_count)
-        self.circuit.append(("Z", [i]))
-        self.__evaluated = False
 
     def theta_que(self, theta):
         if theta == int(theta):
@@ -121,229 +375,167 @@ class QuantumCircuit:
         self.len_of_thetas += len((theta))
         self.__thetas.append(str(theta))
 
-    # Rotation Gates
-    def rx(self, i: int, theta: float):
+    def apply_group(self, gates: List[Tuple[str, List[int | float]]]):
         """
-        Apply the rx(θ) to the i-th qubit.
-        The rx gate rotates the qubit state around the X-axis of the Bloch sphere by theta radians.
-
+        Apply a group of gates sequentially.
+        Since the underlying state update is vectorized and uses BLAS, 
+        this effectively leverages CPU parallelization for tensor contractions.
+        
         Args:
-            i (int): The index of the qubit to apply the gate to.
-            theta (float): The angle of rotation in radians.
-
-        Raises:
-            IndexError if the index 'i' is out of range
+            gates: List of tuples (gate_name, targets_and_params)
         """
+        for gate_name, args in gates:
+            gate_func = getattr(self, gate_name.lower())
+            if gate_name.lower() in ["rx", "ry", "rz", "phase", "p"]:
+                # args[0] is qubit, args[1] is theta
+                gate_func(int(args[0]), float(args[1]))
+            elif gate_name.lower() in ["cnot", "swap"]:
+                gate_func(int(args[0]), int(args[1]))
+            elif gate_name.lower() in ["ccnot", "cswap"]:
+                gate_func(int(args[0]), int(args[1]), int(args[2]))
+            else:
+                 gate_func(int(args[0]))
+    
+    def px(self, i: int):
+        _check_index(i, self.qubits_count)
+        self.circuit.append(("X", [i]))
+        self._apply_gate(X_GATE, [i])
+        return self
 
+    def py(self, i: int):
+        _check_index(i, self.qubits_count)
+        self.circuit.append(("Y", [i]))
+        self._apply_gate(Y_GATE, [i])
+        return self
+
+    def pz(self, i: int):
+        _check_index(i, self.qubits_count)
+        self.circuit.append(("Z", [i]))
+        self._apply_gate(Z_GATE, [i])
+        return self
+
+    def h(self, i: int):
+        _check_index(i, self.qubits_count)
+        self.circuit.append(("H", [i]))
+        self._apply_gate(H_GATE, [i])
+        return self
+
+    def i(self, i: int):
+        _check_index(i, self.qubits_count)
+        self.circuit.append(("I", [i]))
+        return self
+
+    def rx(self, i: int, theta: float):
         _check_index(i, self.qubits_count)
         self.circuit.append(("Rx", [i]))
         self.theta_que(float(theta))
-        self.__evaluated = False
+        theta = float(theta)
+        gate = np.array([
+            [np.cos(theta / 2.0), -1j * np.sin(theta / 2.0)],
+            [-1j * np.sin(theta / 2.0), np.cos(theta / 2)],
+        ], dtype=complex)
+        self._apply_gate(gate, [i])
+        return self
 
     def ry(self, i: int, theta: float):
-        """
-        Apply the rx(θ) to the i-th qubit.
-        The ry gate rotates the qubit state around the Y-axis of the Bloch sphere by theta radians.
-        Args:
-            i (int): The index of the qubit to apply the gate to.
-            theta (float): The angle of rotation in radians.
-
-        Raises:
-            IndexError if the index 'i' is out of range
-        """
-
         _check_index(i, self.qubits_count)
         self.circuit.append(("Ry", [i, float(theta)]))
         self.theta_que(float(theta))
-        self.__evaluated = False
+        theta = float(theta)
+        gate = np.array([
+             [np.cos(theta / 2.0), -np.sin(theta / 2.0)],
+             [np.sin(theta / 2.0), np.cos(theta / 2.0)],
+         ], dtype=complex)
+        self._apply_gate(gate, [i])
+        return self
 
     def rz(self, i: int, theta: float):
-        """
-        Apply the rz(θ) to the i-th qubit.
-        The rz gate rotates the qubit state around the Z-axis of the Bloch sphere by theta radians.
-        Args:
-            i (int): The index of the qubit to apply the gate to.
-            theta (float): The angle of rotation in radians.
-
-        Raises:
-            IndexError if the index 'i' is out of range
-        """
         _check_index(i, self.qubits_count)
         self.circuit.append(("Rz", [i, float(theta)]))
         self.theta_que(float(theta))
-        self.__evaluated = False
+        theta = float(theta)
+        gate = np.array([
+            [np.exp(-1j * (theta / 2.0)), 0],
+            [0, np.exp(1j * (theta / 2.0))],
+        ], dtype=complex)
+        self._apply_gate(gate, [i])
+        return self
 
     def phase(self, i: int, theta: float):
-        """
-        Apply a phase shift to the i-th qubit.
-        phase(θ) adds a phase e^(i*θ) to the |1⟩, leaving |0⟩ unchanged.
-
-        Args:
-            i (int): The index of the qubit to apply the gate to.
-            theta (float): The phase angle in radians.
-
-        Raises:
-            IndexError if the index 'i' is out of range
-        """
-
         _check_index(i, self.qubits_count)
         self.circuit.append(("P", [i, float(theta)]))
         self.theta_que(float(theta))
-        self.__evaluated = False
+        theta = float(theta)
+        gate = np.array([[1, 0], [0, np.exp(1j * theta)]], dtype=complex)
+        self._apply_gate(gate, [i])
+        return self
 
     def swap(self, i: int, j: int):
-        """
-        Swap the states of two qubits.
-
-        Args:
-            i (int): The index of the first qubit.
-            j (int): The index of the second qubit.
-
-        Raises:
-            ValueError if the indices 'i', 'j' aren't distinct
-        """
+        _check_distinct([i, j])
         _check_index(i, self.qubits_count)
         _check_index(j, self.qubits_count)
-        _check_distinct([i, j])
         self.circuit.append(("SWAP", [i, j]))
-        self.__evaluated = False
+        self._apply_gate(SWAP_GATE, [i, j])
+        return self
 
     def cnot(self, i: int, j: int):
-        """
-        Apply the CNOT gate with qubit i as control and qubit j as target.
-        If the control qubit is |1⟩, the amplitudes of the target qubit are flipped.
-
-        Args:
-            i (int): The index of the control qubit.
-            j (int): The index of the target qubit.
-
-        Raises:
-            ValueError if the indices 'i', 'j' aren't distinct
-        """
         _check_distinct([i, j])
         _check_index(i, self.qubits_count)
         _check_index(j, self.qubits_count)
         self.circuit.append(("CNOT", [i, j]))
-        self.__evaluated = False
-
-    def h(self, i: int):
-        """
-        Apply the Hadamard (H) gate to the i-th qubit.
-        The H gate creates an equal superposition of |0⟩ and |1⟩ states.
-        Args:
-            i (int): The index of the qubit to apply the gate to.
-
-        Raises:
-            IndexError if the index 'i' is out of range
-        """
-        _check_index(i, self.qubits_count)
-        self.circuit.append(("H", [i]))
-        self.__evaluated = False
-
-    def i(self, i: int):
-        """
-        Apply the Identity (I) gate to the i-th qubit.
-
-        Args:
-            i (int): The index of the qubit to apply the gate to.
-
-        Raises:
-            IndexError if the index 'i' is out of range
-        """
-        _check_index(i, self.qubits_count)
-        self.circuit.append(("I", [i]))
-        self.__evaluated = False
+        self._apply_gate(CNOT_GATE, [i, j])
+        return self
 
     def cswap(self, i: int, j: int, k: int):
-        """
-        Apply a CSWAP (Fredkin) gate.
-        Swaps the amplitudes of qubits j and k if qubit i is in the |1⟩ state.
-
-        Args:
-            i (int): The index of the control qubit.
-            j (int): The index of the first target qubit.
-            k (int): The index of the second target qubit.
-
-        Raises:
-            IndexError if the indices 'i', 'j', 'k' are out of range
-            ValueError if the indices 'i', 'j', 'k' aren't distinct
-        """
         _check_distinct([i, j, k])
         _check_index(i, self.qubits_count)
         _check_index(j, self.qubits_count)
         _check_index(k, self.qubits_count)
         self.circuit.append(("CSWAP", [i, j, k]))
-        self.__evaluated = False
+        self._apply_gate(CSWAP_GATE, [i, j, k])
+        return self
 
     def ccnot(self, i: int, j: int, k: int):
-        """
-        Apply a CCNOT (Toffoli) gate.
-        Swaps the amplitudes of qubit k if both qubits i and j are in the |1⟩ state.
-
-        Args:
-            i (int): The index of the first control qubit.
-            j (int): The index of the second control qubit.
-            k (int): The index of the target qubit.
-
-
-        Raises:
-            IndexError if the indices 'i', 'j', 'k' are out of range
-            ValueError if the indices 'i', 'j', 'k' aren't distinct
-        """
+        _check_distinct([i, j, k])
         _check_index(i, self.qubits_count)
         _check_index(j, self.qubits_count)
         _check_index(k, self.qubits_count)
-        _check_distinct([i, j, k])
         self.circuit.append(("CCNOT", [i, j, k]))
-        self.__evaluated = False
+        self._apply_gate(CCNOT_GATE, [i, j, k])
+        return self
 
-    def reset(self, i):
-        """
-        Reset the i-th qubit to the |0⟩ state.
-
-        Args:
-            i (int): The index of the qubit to reset.
-
-        Raises:
-            IndexError if the index 'i' is out of range
-        """
-
+    def reset(self, i: int):
         _check_index(i, self.qubits_count)
-        self.qubits[i].states = INITIAL_STATE
-        self.__evaluated = False
+        # Measure and flip if 1
+        prob_1 = self._get_prob_one(i)
+        outcome = 1 if np.random.random() < prob_1 else 0
+        self._collapse(i, outcome)
+        if outcome == 1:
+            self._apply_gate(X_GATE, [i])
+        # Note: Original code did not add RESET to circuit list, so we don't either.
+        self.qubits[i].states = INITIAL_STATE # Legacy update
 
     def reset_all(self):
-        """
-        Reset every qubit in the circuit to the |0⟩ state.
-        """
-        self.qubits: List[Qubit] = [Qubit() for _ in range(self.qubits_count)]
-        self.__thetas: List[str] = []
-        self.circuit: List[Tuple[str, List[int | float]]] = []
-        self.state_vector = np.zeros(2**self.qubits_count, dtype=complex)
-        self.__evaluated = False
+        self.qubits = [Qubit() for _ in range(self.qubits_count)]
+        self.circuit = []
+        self.__thetas = []
+        self.__measures = []
+        self.__measures_in = []
+        self.len_of_thetas = 0
+        # Reset state
+        self._state_tensor = np.zeros((2,) * self.qubits_count, dtype=complex)
+        self._state_tensor[(0,) * self.qubits_count] = 1.0 + 0j
 
     def operations(self, header: str = ""):
-        """
-        Prints the gates applied to each qubit(s) in order.
-
-        Args:
-            msg (str, optional): An optional header to print above the description. Defaults to "".
-        """
         print(header)
         for i, (gate, targets) in enumerate(self.circuit):
-            qubit_plural = "qubit"
+            qubit_plural = "qubit" if len(targets) > 1 else ""
             if len(targets) > 1:
                 qubit_plural += "s"
             target_str = ", ".join(map(str, targets))
             print(f"{i + 1}. {gate} on {qubit_plural} {target_str}")
 
     def _katas(self, header=""):
-        """
-        Prints the quantum circuit in a format suitable for copy-pasting into Q# katas.
-
-        Args:
-            header (str, optional): A header string to print at the top of the output.
-        """
         print(header)
         length = self.qubits_count
         output_str = ""
@@ -358,311 +550,69 @@ class QuantumCircuit:
         print("\t\tDumpMachine();")
         print("\t\tResetAll(qs);")
 
-    def __apply_sqg(self, gate, qubit):
-        """
-        Applies a single-qubit gate to a specified qubit in the quantum circuit.
+    def _get_prob_one(self, qubit):
+        # Axis corresponding to qubit is (n - 1 - qubit)
+        axis = self.qubits_count - 1 - qubit
+        # Move axis to 0
+        psi = np.moveaxis(self._state_tensor, axis, 0)
+        # psi[1, ...] are amplitudes where qubit=1
+        return np.sum(np.abs(psi[1])**2)
 
-        Args:
-            gate (np.ndarray): A 2x2 numpy array representing the single-qubit gate to be applied.
-            qubit (int): The index of the qubit to apply the gate to.
+    def _collapse(self, qubit, outcome):
+        axis = self.qubits_count - 1 - qubit
+        # Zero out the other outcome
+        other = 1 - outcome
+        idx = [slice(None)] * self.qubits_count
+        idx[axis] = other
+        self._state_tensor[tuple(idx)] = 0
+        
+        # Normalize
+        norm = np.linalg.norm(self._state_tensor)
+        if norm > 1e-12:
+            self._state_tensor /= norm
 
-        Raises:
-            IndexError: If the specified qubit index is out of range.
-        """
-        n = 2**self.qubits_count
-        for i in range(0, n, 2 ** (qubit + 1)):
-            for j in range(2**qubit):
-                idx1 = i + j
-                idx2 = i + j + 2**qubit
-                self.state_vector[idx1], self.state_vector[idx2] = np.dot(
-                    gate, [self.state_vector[idx1], self.state_vector[idx2]]
-                )
+    def measure(self, i: int):
+        _check_index(i, self.qubits_count)
+        self.circuit.append(("M", [i]))
+        self.__measures_in.append(i)
+        
+        prob_1 = self._get_prob_one(i)
+        outcome = 1 if np.random.random() < prob_1 else 0
+        
+        self._collapse(i, outcome)
+        self.__measures.append(outcome)
+        self.classical_bits[i] = outcome
+        return outcome
 
-    def __apply_cnot(self, control, target):
-        """
-        Applies a controlled-NOT gate to the control and target qubits.
-
-        Args:
-            control (int): The index of the control qubit.
-            target (int): The index of the target qubit.
-
-        Raises:
-            IndexError if either index is out of range.
-            ValueError if the indices are not distinct.
-        """
-        n = 2**self.qubits_count
-        for i in range(n):
-            if (i & (1 << control)) and not i & (1 << target):
-                j = i ^ (1 << target)
-                self.state_vector[i], self.state_vector[j] = (
-                    self.state_vector[j],
-                    self.state_vector[i],
-                )
-
-    def __apply_ccnot(self, control1, control2, target):
-        """
-        Applies a controlled-CNOT gate to the control and target qubits.
-
-        Args:
-            control1 (int): The index of the first control qubit.
-            control2 (int): The index of the second control qubit.
-            target (int): The index of the target qubit.
-
-        Raises:
-            IndexError if any index is out of range.
-            ValueError if the indices are not distinct.
-        """
-        n = 2**self.qubits_count
-        for i in range(n):
-            if (
-                (i & (1 << control1))
-                and (i & (1 << control2))
-                and not i & (1 << target)
-            ):
-                j = i ^ (1 << target)
-                self.state_vector[i], self.state_vector[j] = (
-                    self.state_vector[j],
-                    self.state_vector[i],
-                )
-
-    def __apply_cswap(self, control, target1, target2):
-        """
-        Applies a controlled-SWAP gate to the two target qubits, controlled by the control qubit.
-
-        Args:
-            control (int): The index of the control qubit.
-            target1 (int): The index of the first target qubit.
-            target2 (int): The index of the second target qubit.
-
-        Raises:
-            IndexError if any index is out of range.
-            ValueError if any pair of indices are not distinct.
-        """
-        n = 2**self.qubits_count
-        nsv = np.zeros(n, dtype=complex)
-        for i in range(n):
-            if i & (1 << control):
-                idx1 = (i >> target1) & 1
-                idx2 = (i >> target2) & 1
-                if idx1 != idx2:
-                    idx_new = i ^ (1 << target1) ^ (1 << target2)
-                else:
-                    idx_new = i
-            else:
-                idx_new = i
-            nsv[idx_new] = self.state_vector[i]
-
-        self.state_vector = nsv
-
-    def __apply_swap(self, target1, target2):
-        """
-        Applies a SWAP gate to the two given qubits.
-
-        Args:
-            target1 (int): The index of the first qubit.
-            target2 (int): The index of the second qubit.
-
-        Raises:
-            IndexError if either index is out of range.
-            ValueError if the indices are not distinct.
-        """
-        n = 2**self.qubits_count
-        nsv = np.zeros(n, dtype=complex)
-        for i in range(n):
-            idx1 = (i >> target1) & 1
-            idx2 = (i >> target2) & 1
-            if idx1 != idx2:
-                idx_new = i ^ (1 << target1) ^ (1 << target2)
-            else:
-                idx_new = i
-            nsv[idx_new] = self.state_vector[i]
-
-        self.state_vector = nsv
-
-    def __apply_measure(self, qubit: int):
-        pone = 0
-        ret = 0
-        for i in range(2**self.qubits_count):
-            if i & (1 << qubit):
-                pone += np.abs(self.state_vector[i]) ** 2
-        if np.random.random() < pone:
-            ret = 1
-
-        nsv = np.zeros(2**self.qubits_count, dtype=complex)
-        for i in range(2**self.qubits_count):
-            if (i & (1 << qubit)) == (ret << qubit):
-                nsv[i] = self.state_vector[i]
-
-        norm = np.linalg.norm(nsv)
-        if norm != 0:
-            nsv /= norm
-
-        self.state_vector = nsv
-
-        self.__measures.append(ret)
-        self.classical_bits[qubit] = ret
-
-    def _eval_state_vector(self):
-        """
-        Evaluates the state vector of the quantum circuit.
-        """
-
-        H = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
-
-        PX = np.array([[0, 1], [1, 0]])
-
-        PY = np.array([[0, -1j], [1j, 0]])
-
-        PZ = np.array([[1, 0], [0, -1]])
-
-        ID = np.array([[1, 0], [0, 1]])
-
-        if not self.__evaluated:
-            self.state_vector[0] = 1  # Initialize to |0...0>
-            for gate, qubits in self.circuit:
-                qubit = int(qubits[0])
-                if gate == "H":
-                    self.__apply_sqg(H, qubit)
-                elif gate == "X":
-                    self.__apply_sqg(PX, qubit)
-                elif gate == "Y":
-                    self.__apply_sqg(PY, qubit)
-                elif gate == "Z":
-                    self.__apply_sqg(PZ, qubit)
-                elif gate == "I":
-                    self.__apply_sqg(ID, qubit)
-                elif gate == "M":
-                    self.__apply_measure(qubit)
-
-                elif gate == "P":
-                    theta = qubits[1]
-                    PHASE = np.array([[1, 0], [0, np.exp(1j * theta)]])
-                    self.__apply_sqg(PHASE, qubit)
-
-                elif gate == "RX":
-                    theta = qubits[1]
-                    RX = np.array([
-                        [np.cos(theta / 2.0), -1j * np.sin(theta / 2.0)],
-                        [-1j * np.sin(theta / 2.0), np.cos(theta / 2)],
-                    ])
-                    self.__apply_sqg(RX, qubit)
-                elif gate == "RY":
-                    theta = qubits[1]
-                    RY = np.array([
-                        [np.cos(theta / 2.0), -np.sin(theta / 2.0)],
-                        [np.sin(theta / 2.0), np.cos(theta / 2.0)],
-                    ])
-                    self.__apply_sqg(RY, qubit)
-                elif gate == "RZ":
-                    theta = qubits[1]
-                    RZ = np.array([
-                        [np.exp(-1j * (theta / 2.0)), 0],
-                        [0, np.exp(1j * (theta / 2.0))],
-                    ])
-                    self.__apply_sqg(RZ, qubit)
-
-                elif gate == "CNOT":
-                    control, target = qubits
-                    self.__apply_cnot(control, target)
-                elif gate == "SWAP":
-                    target1, target2 = qubits
-                    self.__apply_swap(target1, target2)
-                elif gate == "CCNOT":
-                    control1, control2, target = qubits
-                    self.__apply_ccnot(control1, control2, target)
-                elif gate == "CSWAP":
-                    control, target1, target2 = qubits
-                    self.__apply_cswap(control, target1, target2)
+    def measure_all(self):
+        probs = np.abs(self.state_vector) ** 2
+        probs /= np.sum(probs)
+        basis_state = np.random.choice(2**self.qubits_count, p=probs)
+        
+        # Collapse state
+        new_state = np.zeros_like(self.state_vector)
+        new_state[basis_state] = 1.0
+        self.state_vector = new_state
+        
+        # Update classical bits
+        # basis_state corresponds to bin string where q0 is LSB.
+        # classical_bits[i] = bit at qi
+        for i in range(self.qubits_count):
+            self.classical_bits[i] = (basis_state >> i) & 1
+            
+        return bin(basis_state)[2:]
 
     def dump(self, msg: str = "", format_: str = "outline"):
-        """
-        Prints all the basis states of the quantum circuit in a human-readable format.
-
-        Args:
-            msg (str, optional): A header string to print at the top of the output.
-            format_ (str, optional): The output format of the table ("plain" by default)
-
-        Available formats:
-            1.   "plain",
-            2.   "simple",
-            3.   "github",
-            4.   "grid",
-            5.   "simple_grid",
-            6.   "rounded_grid",
-            7.   "heavy_grid",
-            8.   "mixed_grid",
-            9.   "double_grid",
-            10.  "fancy_grid",
-            11.  "outline",
-            12.  "simple_outline",
-            13.  "rounded_outline",
-            14.  "heavy_outline",
-            15.  "mixed_outline",
-            16.  "double_outline",
-            17.  "fancy_outline",
-            18.  "pipe",
-            19.  "orgtbl",
-            20.  "asciidoc",
-            21.  "jira",
-            22.  "presto",
-            23.  "pretty",
-            24.  "psql",
-            25.  "rst",
-            26.  "mediawiki",
-            27.  "moinmoin",
-            28.  "youtrack",
-            29.  "html",
-            30.  "unsafehtml",
-            31.  "latex",
-            32.  "latex_raw",
-            33.  "latex_booktabs",
-            34.  "latex_longtable",
-            35.  "textile",
-            36.  "tsv"
-
-        Raises:
-            ValueError: if 'format' is not in the list of available formats
-        """
         formats = [
-            "plain",
-            "simple",
-            "github",
-            "grid",
-            "simple_grid",
-            "rounded_grid",
-            "heavy_grid",
-            "mixed_grid",
-            "double_grid",
-            "fancy_grid",
-            "outline",
-            "simple_outline",
-            "rounded_outline",
-            "heavy_outline",
-            "mixed_outline",
-            "double_outline",
-            "fancy_outline",
-            "pipe",
-            "orgtbl",
-            "asciidoc",
-            "jira",
-            "presto",
-            "pretty",
-            "psql",
-            "rst",
-            "mediawiki",
-            "moinmoin",
-            "youtrack",
-            "html",
-            "unsafehtml",
-            "latex",
-            "latex_raw",
-            "latex_booktabs",
-            "latex_longtable",
-            "textile",
-            "tsv",
+            "plain", "simple", "github", "grid", "simple_grid", "rounded_grid", "heavy_grid", 
+            "mixed_grid", "double_grid", "fancy_grid", "outline", "simple_outline", 
+            "rounded_outline", "heavy_outline", "mixed_outline", "double_outline", 
+            "fancy_outline", "pipe", "orgtbl", "asciidoc", "jira", "presto", "pretty", 
+            "psql", "rst", "mediawiki", "moinmoin", "youtrack", "html", "unsafehtml", 
+            "latex", "latex_raw", "latex_booktabs", "latex_longtable", "textile", "tsv"
         ]
-        self._eval_state_vector()
-        self.__evaluated = True
+        if format_ not in formats:
+            raise ValueError(f'"{format_}" is not in the available list of formats.')
 
         print(msg)
         probabilities = np.abs(self.state_vector) ** 2
@@ -670,13 +620,14 @@ class QuantumCircuit:
 
         table = [["Basis State", "Probability", "Amplitude", "Phase"]]
         bits = f"{self.qubits_count}"
+        
+        sv_flat = self.state_vector
         for i, prob in enumerate(probabilities):
-            if prob > 1e-7:  # Ignore very small probabilities
+            if prob > 1e-7:
                 sign = "+"
-                if self.state_vector[i].imag < 0:
+                if sv_flat[i].imag < 0:
                     sign = "-"
-                amplitude = f"{self.state_vector[i].real:.6f} {sign} {abs(self.state_vector[i].imag):.6f}i"
-
+                amplitude = f"{sv_flat[i].real:.6f} {sign} {abs(sv_flat[i].imag):.6f}i"
                 row = [
                     f"|{i:0{bits}b}⟩",
                     f"{(prob * 100):.6f}%",
@@ -684,96 +635,33 @@ class QuantumCircuit:
                     f"{phases[i]}",
                 ]
                 table.append(row)
-        if format_ not in formats:
-            raise ValueError(
-                f'"{format_}" is not in the available list of formats. For more information, consult the documentation on pypi'
-            )
 
         print(tabulate(table[1:], headers=table[0], tablefmt=format_))
 
-    def measure_all(self):
-        """
-        measures all qubits and their respective states. Collapses the state vector to one of the basis states.
-
-        Returns:
-            str: the basis state it collapses to
-        """
-        self._eval_state_vector()
-        self.__evaluated = True
-        prob = np.abs(self.state_vector) ** 2
-        prob /= np.sum(prob)
-        basis_state = np.random.choice(2**self.qubits_count, p=prob)
-        new_state_vector = np.zeros(2**self.qubits_count, dtype=complex)
-
-        new_state_vector[basis_state] = 1.0
-        self.state_vector = new_state_vector
-        for i, bit in enumerate(bin(basis_state)[2:]):
-            self.classical_bits[i] = int(bit)
-        return bin(basis_state)[2:]
-
-    def measure(self, i: int):
-        _check_index(i, self.qubits_count)
-        self.circuit.append(("M", [i]))
-        self.__measures_in.append(i)
-
     def draw(self, header: str = ""):
-        """
-        Print an ASCII representation of the quantum circuit.
-
-        Args:
-            header (str, optional): An optional header to print above the circuit representation. Defaults to "".
-        """
         circuit = self.circuit
-
         GATE_SYMBOLS = {
-            "H": "H",
-            "I": "I",
-            "X": "X",
-            "Y": "Y",
-            "M": "M",
-            "Z": "Z",
-            "CNOT": "⨁",
-            "SWAP": "x",
-            "CSWAP": "x",
-            "Rx": "Rx",
-            "Ry": "Rʏ",
-            "Rz": "Rᴢ",
-            "P": "-P",
+            "H": "H", "I": "I", "X": "X", "Y": "Y", "M": "M", "Z": "Z",
+            "CNOT": "⨁", "SWAP": "x", "CSWAP": "x",
+            "Rx": "Rx", "Ry": "Rʏ", "Rz": "Rᴢ", "P": "-P",
             "CCNOT": "⨁",
         }
-        if self.__measures == []:
-            self._eval_state_vector()
+        
         num_qubits = self.qubits_count
         num_gates = len(circuit)
-        if num_qubits < 11:
-            padding = 1
-        elif num_qubits < 101:
-            padding = 2
-        elif num_qubits < 1001:
-            padding = 3
-        elif num_qubits < 10001:
-            padding = 4
-        elif num_qubits < 100001:
-            padding = 5
-        else:
-            padding = 6
+        if num_qubits < 11: padding = 1
+        elif num_qubits < 101: padding = 2
+        elif num_qubits < 1001: padding = 3
+        elif num_qubits < 10001: padding = 4
+        elif num_qubits < 100001: padding = 5
+        else: padding = 6
 
         if header != "":
             print(header)
 
         for qubit in range(num_qubits):
             theta_gates = -1
-            theta_len = 0
-            entangle = [
-                " "
-                for _ in range(
-                    3 * num_gates
-                    + 3
-                    + self.len_of_thetas
-                    + 2 * len(self.__thetas)
-                    + padding
-                )
-            ]
+            entangle = [" " for _ in range(3 * num_gates + 3 + self.len_of_thetas + 2 * len(self.__thetas) + padding)]
             line_str = ""
             padding_str = f"{{:0{padding}d}}"
             qubit_display = f"{padding_str}".format(qubit)
@@ -783,11 +671,8 @@ class QuantumCircuit:
                 TARGET = targets[-1]
                 if gate in ("Rx", "Ry", "Rz", "P"):
                     theta_gates += 1
-                    theta_len += len(str(self.__thetas[theta_gates]))
 
-                if qubit in targets and not (
-                    qubit == TARGET and gate in ("Rx", "Ry", "Rz", "P")
-                ):
+                if qubit in targets and not (qubit == TARGET and gate in ("Rx", "Ry", "Rz", "P")):
                     if len(targets) > 1 and not (isinstance(targets[1], float)):
                         if gate == "SWAP":
                             line_str += "—x—"
@@ -800,60 +685,32 @@ class QuantumCircuit:
                         else:
                             line_str += "—●—"
 
-                        if (qubit < TARGET and qubit >= targets[0]) or (
-                            qubit >= TARGET and qubit < targets[0]
-                        ):
-                            entangle[
-                                (padding - 1)
-                                + 3 * gate_index
-                                + 5
-                                + 8 * (theta_gates + 1)
-                            ] = "│"
+                        if (qubit < TARGET and qubit >= targets[0]) or (qubit >= TARGET and qubit < targets[0]):
+                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
 
-                        if (len(targets) == 3) and (
-                            (qubit < TARGET and qubit >= targets[1])
-                            or (qubit >= TARGET and qubit < targets[1])
-                        ):
-                            entangle[
-                                (padding - 1)
-                                + 3 * gate_index
-                                + 5
-                                + 8 * (theta_gates + 1)
-                            ] = "│"
-
+                        if (len(targets) == 3) and ((qubit < TARGET and qubit >= targets[1]) or (qubit >= TARGET and qubit < targets[1])):
+                             entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
                     else:
                         if gate in ("Rx", "Ry", "Rz", "P"):
-                            line_str += (
-                                f"—{GATE_SYMBOLS[gate]}({self.__thetas[theta_gates]})"
-                            )
+                            line_str += f"—{GATE_SYMBOLS[gate]}({self.__thetas[theta_gates]})"
                         else:
                             if gate in ("M"):
-                                entangle[
-                                    (padding - 1)
-                                    + 3 * gate_index
-                                    + 5
-                                    + 8 * (theta_gates + 1)
-                                ] = str(
-                                    self.__measures[self.__measures_in.index(qubit)]
-                                )
+                                idx = self.__measures_in.index(qubit) if qubit in self.__measures_in else -1
+                                val = str(self.__measures[idx]) if idx < len(self.__measures) and idx != -1 else "?"
+                                entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = val
                             line_str += f"—{GATE_SYMBOLS[gate]}—"
-
                 else:
                     if gate in ("Rx", "Ry", "Rz", "P"):
                         line_str += "—" * 11
                     else:
                         if qubit < max(targets) and qubit > min(targets):
                             line_str += "—│—"
-                            entangle[
-                                (padding - 1)
-                                + 3 * gate_index
-                                + 5
-                                + 8 * (theta_gates + 1)
-                            ] = "│"
+                            entangle[(padding - 1) + 3 * gate_index + 5 + 8 * (theta_gates + 1)] = "│"
                         else:
                             line_str += "—" * 3
             print(line_str)
             print("".join(entangle))
+
 
 
 class DeutschJozsa:
@@ -895,3 +752,7 @@ class DeutschJozsa:
 
         self.qc.draw()
         print("Classical Bits: ", self.qc.classical_bits[:-1])
+
+
+qc = QuantumCircuit(10).h(9).px(0).h(1)
+print(qc.measure(1))
