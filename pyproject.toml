@@ -1,30 +1,10 @@
 [project]
 name = "qsiml"
-version = "0.0.4"
-authors = [
-    { name="Mustafa Aamir", email="mustafa.290101@gmail.com"},
-    { name="Yusuf Sabuwala", email="yusuff.0279@gmail.com"}
-]
-description = "A simulation of quantum circuits in python"
+version = "0.1.0"
+description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
-license = {file ="LICENSE"}
-keywords = ["quantum", "quantum computing", "simulator"]
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-]
+requires-python = ">=3.13"
 dependencies = [
-    "numpy",
-    "tabulate"
+    "numpy>=2.4.0",
+    "tabulate>=0.9.0",
 ]
-
-[project.urls]
-Homepage = "https://github.com/MustafaAamir/qsiml"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/qsiml.py"]
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
